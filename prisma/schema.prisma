@@ -1,0 +1,550 @@
+// MeeChat — Thai AI Roleplay Platform
+// Prisma schema (Phase 1 / Phase 1.5)
+//
+// Conventions:
+// - Table names are snake_case via @@map / @map
+// - UUID primary keys
+// - `users.id` mirrors Supabase `auth.users.id` (created by SQL trigger,
+//   see supabase/sql/001_auth_triggers_rls.sql)
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────── Enums ───────────────────────────
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum Visibility {
+  PUBLIC
+  UNLISTED
+  PRIVATE
+}
+
+// Publishing state machine (docs/creator-system.md §3):
+// DRAFT → PENDING → PUBLISHED / REJECTED (+ edit & resubmit)
+enum CharacterStatus {
+  DRAFT
+  PENDING
+  PUBLISHED
+  REJECTED
+}
+
+enum ContentRating {
+  GENERAL
+  MATURE
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum MessageStatus {
+  COMPLETED
+  ABORTED
+  FAILED
+}
+
+enum MemoryType {
+  FACT
+  RELATIONSHIP
+  EVENT
+  PREFERENCE
+  PROMISE
+  SECRET
+  GOAL
+}
+
+enum EnergyTransactionType {
+  DAILY_REWARD
+  PURCHASE
+  CHAT_USAGE
+  REGENERATE
+  REFUND
+  ADMIN_ADJUSTMENT
+  PROMOTION
+  SUBSCRIPTION
+  QUEST_REWARD
+}
+
+// รายได้ครีเอเตอร์ (share-of-energy) — CHAT_SHARE = % จากพลังงานที่ user จ่ายจริง
+enum CreatorEarningType {
+  CHAT_SHARE
+  BONUS
+  ADJUSTMENT
+}
+
+enum AiUsageStatus {
+  SUCCESS
+  ERROR
+  TIMEOUT
+  CONTENT_REJECTED
+}
+
+// ─────────────────────── Users & Personas ───────────────────────
+
+model User {
+  id          String   @id @db.Uuid
+  email       String   @unique
+  displayName String?  @map("display_name")
+  avatarUrl   String?  @map("avatar_url")
+  role        UserRole @default(USER)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  personas      UserPersona[]
+  creator       CreatorProfile?
+  conversations Conversation[]
+  favorites     Favorite[]
+  likes         CharacterLike[]
+  follows       CreatorFollow[]
+  wallet        EnergyWallet?
+  transactions  EnergyTransaction[]
+  usageLogs     AiUsageLog[]
+  memories      Memory[]
+  questProgress UserQuestProgress[]
+  affinities    CharacterAffinity[]
+
+  @@map("users")
+}
+
+model UserPersona {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  name              String
+  gender            String?
+  age               Int?
+  description       String?
+  personality       String?
+  appearance        String?
+  additionalContext String?  @map("additional_context")
+  isDefault         Boolean  @default(false) @map("is_default")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+
+  @@index([userId])
+  @@map("user_personas")
+}
+
+// ─────────────────────── Creators & Characters ───────────────────────
+
+model CreatorProfile {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @unique @map("user_id") @db.Uuid
+  username    String   @unique
+  bio         String?
+  avatarUrl   String?  @map("avatar_url")
+  // Denormalized: source of truth = creator_earnings ledger (อัปเดตทรานแซกชันเดียวกัน)
+  totalEarned Int      @default(0) @map("total_earned")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  characters Character[]
+  followers  CreatorFollow[]
+
+  @@map("creator_profiles")
+}
+
+model Character {
+  id              String        @id @default(uuid()) @db.Uuid
+  creatorId       String        @map("creator_id") @db.Uuid
+  name            String
+  slug            String        @unique
+  tagline         String
+  description     String
+  personality     String?
+  scenario        String?
+  speakingStyle   String?       @map("speaking_style")
+  firstMessage    String        @map("first_message")
+  avatarUrl       String?       @map("avatar_url")
+  visibility      Visibility    @default(PUBLIC)
+  status          CharacterStatus @default(DRAFT)
+  // เหตุผลจาก admin ตอน reject (แสดงให้ครีเอเตอร์ใน studio)
+  reviewNote      String?       @map("review_note")
+  publishedAt     DateTime?     @map("published_at")
+  contentRating   ContentRating @default(GENERAL) @map("content_rating")
+  // Denormalized counters, updated transactionally with the events that change them
+  chatCount       Int           @default(0) @map("chat_count")
+  likeCount       Int           @default(0) @map("like_count")
+  favoriteCount   Int           @default(0) @map("favorite_count")
+  defaultModelKey String?       @map("default_model_key")
+  // Growth-weighted trending score, recomputed periodically (cron) —
+  // ไม่ใช่ lifetime count; 0 = ไม่มีข้อมูล, sort=trending ใช้ค่านี้
+  trendScore      Float         @default(0) @map("trend_score")
+  trendUpdatedAt  DateTime?     @map("trend_updated_at")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  creator       CreatorProfile     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  examples      CharacterExample[]
+  characterTags CharacterTag[]
+  likes         CharacterLike[]
+  favorites     Favorite[]
+  conversations Conversation[]
+  memories      Memory[]
+  quests        CharacterQuest[]
+  affinities    CharacterAffinity[]
+
+  @@index([creatorId])
+  @@index([visibility])
+  @@index([status])
+  @@index([chatCount])
+  @@index([updatedAt])
+  @@map("characters")
+}
+
+// Append-only ledger รายได้ครีเอเตอร์ — idempotencyKey กันจ่ายซ้ำ
+// (เช่น retry หลัง settle; key = `${chatIdempotencyKey}:earning`)
+model CreatorEarning {
+  id             String            @id @default(uuid()) @db.Uuid
+  creatorUserId  String            @map("creator_user_id") @db.Uuid
+  characterId    String?           @map("character_id") @db.Uuid
+  type           CreatorEarningType @default(CHAT_SHARE)
+  amount         Int
+  note           String?
+  idempotencyKey String?           @unique @map("idempotency_key")
+  createdAt      DateTime          @default(now()) @map("created_at")
+
+  @@index([creatorUserId, createdAt])
+  @@index([characterId])
+  @@map("creator_earnings")
+}
+
+model Tag {
+  id   String @id @default(uuid()) @db.Uuid
+  name String @unique
+  slug String @unique
+
+  characters CharacterTag[]
+
+  @@map("tags")
+}
+
+model CharacterTag {
+  characterId String @map("character_id") @db.Uuid
+  tagId       String @map("tag_id") @db.Uuid
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  tag       Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([characterId, tagId])
+  @@index([tagId])
+  @@map("character_tags")
+}
+
+model CharacterExample {
+  id            String @id @default(uuid()) @db.Uuid
+  characterId   String @map("character_id") @db.Uuid
+  position      Int
+  userTurn      String @map("user_turn")
+  characterTurn String @map("character_turn")
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@index([characterId, position])
+  @@map("character_examples")
+}
+
+// ─────────────────────── Quests (ภารกิจประจำตัวละคร) ───────────────────────
+
+// ภารกิจของตัวละคร 1 รายการ — ผูกกับ character (cascade ลบตามตัวละคร)
+// MESSAGES/STREAK_DAYS นับก้าวหน้าอัตโนมัติจากการแชท; AI_TOPIC ใช้ AI ตัดสินจากบทสนทนา
+enum QuestGoalType {
+  MESSAGES
+  STREAK_DAYS
+  AI_TOPIC
+}
+
+model CharacterQuest {
+  id             String        @id @default(uuid()) @db.Uuid
+  characterId    String        @map("character_id") @db.Uuid
+  goalType       QuestGoalType @map("goal_type")
+  // เป้าตัวเลข (ข้อความ/วัน) — ไม่ใช้กับ AI_TOPIC จึง default 0
+  target         Int           @default(0)
+  title          String
+  description    String
+  // เกณฑ์ที่ส่งให้ AI ตัดสิน (เฉพาะ AI_TOPIC) เช่น "ผู้ใช้ทำให้ตัวละครหัวเราะ"
+  criteriaPrompt String?       @map("criteria_prompt")
+  // รางวัล = ค่าความสนิท (ไม่แจกเหรียญ — กันเงินเฟ้อ)
+  rewardIntimacy Int           @default(10) @map("reward_intimacy")
+  sortOrder      Int           @default(0) @map("sort_order")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  character Character           @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  progress  UserQuestProgress[]
+
+  @@index([characterId, sortOrder])
+  @@map("character_quests")
+}
+
+// ความก้าวหน้า 1 แถวต่อ (user, quest) — completedAt/claimedAt เป็นเส้นแบ่งสถานะ
+// claim idempotent ผ่าน claimedAt (mark-then-grant ใน transaction เดียว)
+model UserQuestProgress {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  questId     String    @map("quest_id") @db.Uuid
+  progress    Int       @default(0)
+  // วันล่าสุดที่นับ (UTC date) — ใช้นับ STREAK_DAYS แบบ distinct-day
+  lastBumpOn  DateTime? @map("last_bump_on")
+  completedAt DateTime? @map("completed_at")
+  claimedAt   DateTime? @map("claimed_at")
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quest CharacterQuest @relation(fields: [questId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questId])
+  @@index([userId])
+  @@map("user_quest_progress")
+}
+
+// ─────────────────────── Intimacy (ค่าความสนิท user ↔ character) ───────────────────────
+
+// ความสนิทสะสม 1 แถวต่อ (user, character) — เลเวล derive จาก points ใน src/lib/quests/intimacy.ts
+// รางวัลภารกิจและ engagement อื่น ๆ เติม points นี้; ตัวละครปรับน้ำเสียงตามเลเวลผ่าน system prompt
+model CharacterAffinity {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  characterId String   @map("character_id") @db.Uuid
+  points      Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, characterId])
+  @@index([characterId, points])
+  @@map("character_affinities")
+}
+
+// ─────────────────────── Conversations & Messages ───────────────────────
+
+model Conversation {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  characterId   String   @map("character_id") @db.Uuid
+  personaId     String?  @map("persona_id") @db.Uuid
+  title         String   @default("การสนทนาใหม่")
+  lastMessageAt DateTime @default(now()) @map("last_message_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  character Character            @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  persona   UserPersona?         @relation(fields: [personaId], references: [id], onDelete: SetNull)
+  messages  Message[]
+  summary   ConversationSummary?
+  memories  Memory[]
+  usageLogs AiUsageLog[]
+
+  @@index([userId, updatedAt])
+  @@index([characterId])
+  @@map("conversations")
+}
+
+// Regenerate creates a sibling row sharing `parentMessageId`; the newest
+// `variantIndex` with `isActiveVariant = true` is what the UI renders.
+model Message {
+  id               String        @id @default(uuid()) @db.Uuid
+  conversationId   String        @map("conversation_id") @db.Uuid
+  role             MessageRole
+  content          String
+  parentMessageId  String?       @map("parent_message_id") @db.Uuid
+  variantIndex     Int           @default(0) @map("variant_index")
+  isActiveVariant  Boolean       @default(true) @map("is_active_variant")
+  model            String?
+  promptTokens     Int?          @map("prompt_tokens")
+  completionTokens Int?          @map("completion_tokens")
+  status           MessageStatus @default(COMPLETED)
+  createdAt        DateTime      @default(now()) @map("created_at")
+
+  conversation  Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  parentMessage Message?     @relation("MessageVariants", fields: [parentMessageId], references: [id], onDelete: Cascade)
+  variants      Message[]    @relation("MessageVariants")
+
+  @@index([conversationId, createdAt])
+  @@index([parentMessageId])
+  @@map("messages")
+}
+
+// ─────────────────────── Memory ───────────────────────
+
+model Memory {
+  id              String     @id @default(uuid()) @db.Uuid
+  userId          String     @map("user_id") @db.Uuid
+  characterId     String     @map("character_id") @db.Uuid
+  conversationId  String     @map("conversation_id") @db.Uuid
+  type            MemoryType
+  content         String
+  importance      Int        @default(1)
+  sourceMessageId String?    @map("source_message_id") @db.Uuid
+  lastSeenAt      DateTime   @default(now()) @map("last_seen_at")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  character    Character    @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([characterId, userId])
+  @@map("memories")
+}
+
+model ConversationSummary {
+  conversationId           String   @id @map("conversation_id") @db.Uuid
+  summary                  String
+  summarizedUntilMessageId String?  @map("summarized_until_message_id") @db.Uuid
+  tokenCount               Int?     @map("token_count")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("conversation_summaries")
+}
+
+// ─────────────────────── Social ───────────────────────
+
+model Favorite {
+  userId      String   @map("user_id") @db.Uuid
+  characterId String   @map("character_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@id([userId, characterId])
+  @@index([characterId])
+  @@map("favorites")
+}
+
+model CharacterLike {
+  userId      String   @map("user_id") @db.Uuid
+  characterId String   @map("character_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@id([userId, characterId])
+  @@index([characterId])
+  @@map("character_likes")
+}
+
+model CreatorFollow {
+  userId    String   @map("user_id") @db.Uuid
+  creatorId String   @map("creator_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@id([userId, creatorId])
+  @@index([creatorId])
+  @@map("creator_follows")
+}
+
+// ─────────────────────── Energy Ledger ───────────────────────
+
+model EnergyWallet {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @unique @map("user_id") @db.Uuid
+  freeBalance    Int      @default(0) @map("free_balance")
+  paidBalance    Int      @default(0) @map("paid_balance")
+  lifetimeEarned Int      @default(0) @map("lifetime_earned")
+  lifetimeSpent  Int      @default(0) @map("lifetime_spent")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions EnergyTransaction[]
+
+  @@map("energy_wallets")
+}
+
+// Append-only ledger. `amount` is signed (negative = spend).
+// `balanceBefore`/`balanceAfter` are total balances (free + paid).
+// `idempotencyKey` prevents double charge (e.g. retry after stream failure).
+model EnergyTransaction {
+  id             String                @id @default(uuid()) @db.Uuid
+  walletId       String                @map("wallet_id") @db.Uuid
+  userId         String                @map("user_id") @db.Uuid
+  type           EnergyTransactionType
+  amount         Int
+  balanceBefore  Int                   @map("balance_before")
+  balanceAfter   Int                   @map("balance_after")
+  referenceType  String?               @map("reference_type")
+  referenceId    String?               @map("reference_id")
+  idempotencyKey String?               @unique @map("idempotency_key")
+  metadata       Json?
+  createdAt      DateTime              @default(now()) @map("created_at")
+
+  wallet EnergyWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([walletId, createdAt])
+  @@index([userId, createdAt])
+  @@map("energy_transactions")
+}
+
+// ─────────────────────── AI Models & Usage ───────────────────────
+
+model AiModel {
+  id                   String   @id @default(uuid()) @db.Uuid
+  modelKey             String   @unique @map("model_key")
+  provider             String
+  providerModelId      String   @map("provider_model_id")
+  displayName          String   @map("display_name")
+  // Cost per 1M tokens in USD
+  inputCostPerMillion  Decimal  @map("input_cost_per_million") @db.Decimal(12, 4)
+  outputCostPerMillion Decimal  @map("output_cost_per_million") @db.Decimal(12, 4)
+  energyMultiplier     Decimal  @default(1) @map("energy_multiplier") @db.Decimal(6, 2)
+  maxContextTokens     Int      @map("max_context_tokens")
+  isEnabled            Boolean  @default(true) @map("is_enabled")
+  isPremiumOnly        Boolean  @default(false) @map("is_premium_only")
+  sortOrder            Int      @default(0) @map("sort_order")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@map("ai_models")
+}
+
+model AiUsageLog {
+  id               String        @id @default(uuid()) @db.Uuid
+  userId           String?       @map("user_id") @db.Uuid
+  conversationId   String?       @map("conversation_id") @db.Uuid
+  feature          String
+  provider         String
+  modelKey         String        @map("model_key")
+  promptTokens     Int           @map("prompt_tokens")
+  completionTokens Int           @map("completion_tokens")
+  totalTokens      Int           @map("total_tokens")
+  estimatedCost    Decimal?      @map("estimated_cost") @db.Decimal(12, 6)
+  latencyMs        Int?          @map("latency_ms")
+  status           AiUsageStatus
+  errorCode        String?       @map("error_code")
+  createdAt        DateTime      @default(now()) @map("created_at")
+
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([conversationId])
+  @@index([status, createdAt])
+  @@map("ai_usage_logs")
+}

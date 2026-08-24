@@ -1,0 +1,15 @@
+import "dotenv/config";
+import { Client } from "pg";
+const c = new Client({ connectionString: process.env.DATABASE_URL });
+await c.connect();
+const cols = await c.query("select column_name from information_schema.columns where table_name='characters' and column_name in ('status','review_note','published_at')");
+const te = await c.query("select column_name from information_schema.columns where table_name='creator_profiles' and column_name='total_earned'");
+const tbl = await c.query("select count(*)::int n from creator_earnings");
+const pub = await c.query("select status, count(*)::int n from characters group by 1");
+const foreign = await c.query("select count(*)::int n from pg_tables where schemaname='public' and tablename in ('stories','npcs','game_sessions','reader_profiles','story_favorites','story_ratings','story_save_slots','player_logs')");
+console.log("char cols:", cols.rows.map(r=>r.column_name).join(","));
+console.log("profile total_earned:", te.rows.length);
+console.log("creator_earnings rows:", tbl.rows[0].n);
+console.log("char status:", pub.rows.map(r=>`${r.status}=${r.n}`).join(","));
+console.log("foreign tables intact:", foreign.rows[0].n === 8);
+await c.end();
