@@ -17,6 +17,7 @@ export type ApiErrorCode =
   | "CONTENT_REJECTED"
   | "LLM_TIMEOUT"
   | "PAYMENTS_DISABLED"
+  | "PAYMENT_FAILED"
   | "INTERNAL_ERROR";
 
 const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
@@ -30,6 +31,7 @@ const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
   CONTENT_REJECTED: 422,
   LLM_TIMEOUT: 504,
   PAYMENTS_DISABLED: 503,
+  PAYMENT_FAILED: 402,
   INTERNAL_ERROR: 500,
 };
 
@@ -44,6 +46,7 @@ const THAI_MESSAGE_BY_CODE: Record<ApiErrorCode, string> = {
   CONTENT_REJECTED: "โมเดลปฏิเสธเนื้อหาส่วนนี้ กรุณาลองเขียนใหม่",
   LLM_TIMEOUT: "AI ใช้เวลาตอบนานเกินไป กรุณาลองอีกครั้ง",
   PAYMENTS_DISABLED: "ระบบชำระเงินยังไม่เปิดใช้งาน รับพลังงานรายวันได้ที่หน้า Wallet",
+  PAYMENT_FAILED: "การชำระเงินยังไม่สำเร็จหรือถูกยกเลิก — ไม่มีการตัดเงิน",
   INTERNAL_ERROR: "เกิดข้อผิดพลาดภายในระบบ กรุณาลองอีกครั้ง",
 };
 

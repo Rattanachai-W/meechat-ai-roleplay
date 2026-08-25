@@ -8,8 +8,8 @@ import { env } from "@/lib/env";
  * score = conversations(7d)×3 + likes(7d)×5 + favorites(7d)×10
  * วัดการเติบโตล่าสุด ไม่ใช่ยอดรวมตลอดกาล (ตาม spec §trending)
  *
- * Vercel Cron เรียกทุกชั่วโมง (vercel.json); ถ้าตั้ง CRON_SECRET
- * จะต้องส่ง header `Authorization: Bearer <secret>` เท่านั้น
+ * Vercel Cron เรียกวันละครั้ง (vercel.json `0 0 * * *` — Hobby plan จำกัด cron รายวัน);
+ * ถ้าตั้ง CRON_SECRET จะต้องส่ง header `Authorization: Bearer <secret>` เท่านั้น
  */
 export async function GET(request: NextRequest) {
   try {

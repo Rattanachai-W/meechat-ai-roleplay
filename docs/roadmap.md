@@ -192,3 +192,39 @@ Goal types: MESSAGES / STREAK_DAYS / AI_TOPIC — แรงบันดาลใ
 > choices/endings — data model ปัจจุบัน reuse ได้ (characters, personas, messages,
 > memories, wallet, gateway) โดยไม่ต้อง migrate ทิ้ง; character_quests/user_quest_progress
 > ที่เพิ่มใน M10 เป็นภารกิจ engagement ระดับตัวละคร แยกจาก story quests ของ Phase 2
+
+## ✅ M12 — Payment Gateway: Stripe Checkout (เสร็จแล้ว)
+
+แรงจูงใจ: ร้านเติมพลังงาน (M9) เปิดได้แค่โหมด mock — TODO(payment-gateway) ใน route เดิม
+ระบุไว้แล้วว่าต้อง verify session ผ่าน webhook ก่อน credit เสมอ; เลือก **Stripe**
+เป็น gateway (Checkout redirect โฮสต์หน้าชำระเงินให้ — ไม่แตะข้อมูลบัตรในระบบ, PCI scope เล็ก)
+
+- [x] `src/lib/payments/service.ts`: `resolvePaymentsMode()` (off/mock/stripe) ·
+  `createEnergyCheckout` (Checkout Session mode=payment, THB, locale=th, metadata snapshot
+  userId/packageId/**coins** ตอนซื้อ) · `creditPaidSession` (idempotent) ·
+  `verifyStripeEvent` (`constructEventAsync` static — ใช้ webhook secret อย่างเดียว)
+- [x] **ไม่ migrate DB** — เครดิตใช้ ledger idempotencyKey `stripe:{sessionId}` ที่ unique อยู่แล้ว
+  (แบบเดียวกับ daily-claim จับ P2002); ไม่มีตาราง payments เพิ่มบน shared DB
+- [x] POST `/api/energy/purchase`: stripe branch → `{checkoutUrl}` (rate limit `purchase` 10/ชม.);
+  success_url = `/wallet?purchase=success&session_id={CHECKOUT_SESSION_ID}`
+- [x] POST `/api/webhooks/stripe`: raw body + signature check (`STRIPE_WEBHOOK_SECRET`) →
+  `checkout.session.completed` = primary path ฝั่ง production; signature ผิด → 400
+- [x] POST `/api/energy/confirm`: fallback สำหรับ dev/local ที่รับ webhook ไม่ได้ — retrieve
+  session จาก Stripe API + ownership check (metadata.userId ต้องตรงผู้ใช้ → FORBIDDEN),
+  idempotent ร่วมกับ webhook (ชนกัน = credited:false ไม่เครดิตซ้ำ)
+- [x] UI EnergyShop 3 โหมด: mock ป้าย "โหมดทดสอบ" / stripe badge "ชำระผ่าน Stripe" + redirect;
+      กลับมาถึง `/wallet?purchase=success|cancelled` → confirm + toast + เคลียร์ query
+- [x] Error taxonomy เพิ่ม `PAYMENT_FAILED` (402 "ยังไม่สำเร็จ/ถูกยกเลิก"); env ใหม่
+  `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` (+ `.env.example`) — server-side only
+
+### Verification log (2026-08-24) — M12 Stripe
+
+- tsc clean · unit `tests/unit/payments.test.ts` 13/13 (mode matrix/metadata/signature
+  valid+tampered+wrong secret+replay tolerance) · integration `tests/integration/payments.test.ts`
+  3/3 (credit → wallet/ledger gateway="stripe", replay idempotent ยอดไม่เพิ่มซ้ำ,
+  session คนอื่น FORBIDDEN)
+- Regression: wallet-flows e2e 7/7 (mock mode ครบ chain), creator-studio 25/25
+- การเปิดใช้จริง: ตั้ง `STRIPE_SECRET_KEY` (+`PAYMENTS_ENABLED=true`, เอา PAYMENTS_MODE=mock ออก)
+  → mode เปลี่ยนเป็น stripe อัตโนมัติ; production เพิ่ม webhook endpoint `/api/webhooks/stripe`
+  (event checkout.session.completed) แล้วใส่ `STRIPE_WEBHOOK_SECRET`; local ทดสอบได้ด้วย
+  confirm fallback โดยไม่ต้องต่อ stripe CLI

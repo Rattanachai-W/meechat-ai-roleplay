@@ -39,6 +39,9 @@ const serverEnvSchema = z.object({
   UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
   // Vercel Cron protection (ถ้าตั้งจะ require Bearer token)
   CRON_SECRET: z.string().min(1).optional(),
+  // Stripe (payment gateway) — server-side only, ห้าม expose
+  STRIPE_SECRET_KEY: z.string().min(1).optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
 });
 
 const rawServerEnv = Object.fromEntries(

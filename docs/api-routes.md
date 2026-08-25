@@ -6,7 +6,7 @@
 - Error response รูปแบบเดียว: `{ "error": { "code": "INSUFFICIENT_ENERGY", "message": "..." } }`
 - Error codes: `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION_ERROR`,
   `INSUFFICIENT_ENERGY`, `RATE_LIMITED`, `MODEL_UNAVAILABLE`, `CONTENT_REJECTED`,
-  `LLM_TIMEOUT`, `PAYMENTS_DISABLED`, `INTERNAL_ERROR`
+  `LLM_TIMEOUT`, `PAYMENTS_DISABLED`, `PAYMENT_FAILED`, `INTERNAL_ERROR`
 - Auth: Supabase session cookie (ผ่าน proxy middleware); ownership check เสมอใน handler
 - Lists ใช้ cursor pagination (`?cursor=&limit=`)
 
@@ -112,8 +112,10 @@ LLM gateway stream → save → usage log → settle charge (refund ถ้า fa
 | GET | `/api/energy/wallet` | balance ปัจจุบัน |
 | GET | `/api/energy/transactions?cursor=` | ledger ของ user |
 | POST | `/api/energy/daily-claim` | รับ daily reward (idempotent ต่อวัน) |
-| GET | `/api/energy/purchase` | catalog แพ็กเกจเติมพลังงาน + `paymentsEnabled` + `mode` (`"mock"` เมื่อเปิดโหมดทดสอบ) |
-| POST | `/api/energy/purchase` | ซื้อแพ็กเกจ `{packageId}` — 3 โหมดตาม env `PAYMENTS_ENABLED`/`PAYMENTS_MODE`: **`mock`** = เครดิตทันที + ledger PURCHASE (metadata.gateway="mock", แต่ละ request = การซื้อแยก), `off` (default) = 503 `PAYMENTS_DISABLED`, `gateway` = ยังไม่รองรับ (TODO: verify webhook ก่อน credit) |
+| GET | `/api/energy/purchase` | catalog แพ็กเกจเติมพลังงาน + `paymentsEnabled` + `mode` (`"mock"` โหมดทดสอบ / `"stripe"` เชื่อม Stripe Checkout แล้ว) |
+| POST | `/api/energy/purchase` | ซื้อแพ็กเกจ `{packageId}` — ตาม env `PAYMENTS_ENABLED`/`PAYMENTS_MODE`: **`mock`** = เครดิตทันที + ledger PURCHASE (metadata.gateway="mock", แต่ละ request = การซื้อแยก), **`stripe`** (มี `STRIPE_SECRET_KEY`) = สร้าง Checkout Session → `{checkoutUrl, sessionId}` ให้ redirect (rate limit `purchase` 10/ชม.), `off` (default) = 503 `PAYMENTS_DISABLED` |
+| POST | `/api/energy/confirm` | fallback webhook — `{sessionId}` ตอนผู้ใช้กลับถึง `/wallet?purchase=success`; retrieve session จาก Stripe → เครดิตถ้า paid, idempotent ร่วมกับ webhook ผ่าน idempotencyKey `stripe:{sessionId}`; error: `FORBIDDEN` (session ไม่ใช่ของผู้ใช้) / `PAYMENT_FAILED` (ยังไม่จ่าย) |
+| POST | `/api/webhooks/stripe` | Stripe webhook (production primary) — verify signature ด้วย `STRIPE_WEBHOOK_SECRET`, จัดการ `checkout.session.completed` → เครดิต ledger; signature ผิด → 400 |
 
 ## Admin
 

@@ -4,28 +4,33 @@ import type { Metadata } from "next";
 import { MessageCircle, Heart, Star, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import {
-  getCharacterDetail,
-} from "@/lib/characters/queries";
+import { getCharacterDetail } from "@/lib/characters/queries";
+import { getQuestsWithProgress, getAffinitySummary } from "@/lib/quests/service";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { CharacterActions } from "@/features/characters/components/character-actions";
+import { CharacterQuestsSection } from "@/features/characters/components/character-quests-section";
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata(props: PageProps<"/character/[slug]">): Promise<Metadata> {
-  const { slug } = await props.params;
-  const result = await getCharacterDetail(slug, null);
+export async function generateMetadata(props: PageProps<"/character/[id]">): Promise<Metadata> {
+  const { id } = await props.params;
+  const result = await getCharacterDetail(id, null);
   return { title: result ? `${result.character.name} — MeeChat` : "ไม่พบตัวละคร" };
 }
 
-export default async function CharacterPage(props: PageProps<"/character/[slug]">) {
-  const { slug } = await props.params;
+export default async function CharacterPage(props: PageProps<"/character/[id]">) {
+  const { id } = await props.params;
   const user = await getCurrentUser();
-  const result = await getCharacterDetail(slug, user?.id ?? null);
+  const result = await getCharacterDetail(id, user?.id ?? null);
   if (!result) notFound();
 
   const { character, viewer } = result;
   const isOwner = viewer.isOwner;
+  // ภารกิจ + ความสนิทของผู้ชม — ยังไม่ล็อกอินเห็นภารกิจแบบไม่มี progress
+  const [quests, affinity] = await Promise.all([
+    getQuestsWithProgress(user?.id ?? null, character.id),
+    user ? getAffinitySummary(user.id, character.id) : Promise.resolve(null),
+  ]);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -159,6 +164,11 @@ export default async function CharacterPage(props: PageProps<"/character/[slug]"
           </section>
         )}
       </div>
+
+      <Separator />
+
+      {/* ภารกิจ + ความสนิท — ทำภารกิจ/รับรางวัลเกิดในหน้าแชท */}
+      <CharacterQuestsSection quests={quests} affinity={affinity} isLoggedIn={Boolean(user)} />
     </div>
   );
 }

@@ -141,7 +141,7 @@ export function CharacterForm() {
       toast.success(
         publish ? "เผยแพร่ตัวละครแล้ว!" : editId ? "บันทึกฉบับร่างแล้ว" : "บันทึกฉบับร่างแล้ว — เผยแพร่ได้ที่ Creator Studio"
       );
-      router.push(publish ? `/character/${data.character.slug}` : "/creator");
+      router.push(publish ? `/character/${data.character.id}` : "/creator");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "เกิดข้อผิดพลาด");
     } finally {

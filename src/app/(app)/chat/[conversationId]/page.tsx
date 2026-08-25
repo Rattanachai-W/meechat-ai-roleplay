@@ -16,7 +16,7 @@ export default async function ChatPage(props: PageProps<"/chat/[conversationId]"
   const conversation = await prisma.conversation.findUnique({
     where: { id: conversationId },
     include: {
-      character: { select: { id: true, name: true, slug: true, avatarUrl: true } },
+      character: { select: { id: true, name: true, avatarUrl: true } },
       // ความสนิทปัจจุบัน (อาจยังไม่มีแถวถ้าไม่เคย claim อะไร)
     },
   });
@@ -34,7 +34,6 @@ export default async function ChatPage(props: PageProps<"/chat/[conversationId]"
       conversationId={conversation.id}
       characterId={conversation.character.id}
       characterName={conversation.character.name}
-      characterSlug={conversation.character.slug}
       avatarUrl={conversation.character.avatarUrl}
       intimacyLevel={affinityLv.level}
       intimacyLabel={affinityLv.label}

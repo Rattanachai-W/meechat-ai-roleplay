@@ -37,7 +37,7 @@ export default async function CreatorPage(props: PageProps<"/creator/[username]"
       orderBy: { chatCount: "desc" },
       take: 48,
       select: {
-        slug: true, name: true, tagline: true, avatarUrl: true, contentRating: true,
+        id: true, slug: true, name: true, tagline: true, avatarUrl: true, contentRating: true,
         chatCount: true, likeCount: true, favoriteCount: true,
         creator: { select: { username: true } },
         characterTags: { select: { tag: { select: { slug: true } } } },

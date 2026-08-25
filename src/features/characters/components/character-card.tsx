@@ -3,6 +3,7 @@ import { Heart, MessageCircle, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export interface CharacterCardProps {
+  id: string;
   slug: string;
   name: string;
   tagline: string;
@@ -33,7 +34,7 @@ function gradientFor(slug: string): string {
 export function CharacterCard({ character }: { character: CharacterCardProps }) {
   return (
     <Link
-      href={`/character/${character.slug}`}
+      href={`/character/${character.id}`}
       className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all hover:-translate-y-0.5 hover:border-fuchsia-500/40 hover:shadow-lg hover:shadow-fuchsia-500/5"
     >
       <div

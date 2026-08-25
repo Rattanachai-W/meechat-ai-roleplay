@@ -144,9 +144,10 @@ export async function getQuestsWithProgress(
     description: q.description,
     criteriaPrompt: q.criteriaPrompt,
     rewardIntimacy: q.rewardIntimacy,
-    progress: q.progress[0]?.progress ?? 0,
-    completed: Boolean(q.progress[0]?.completedAt),
-    claimed: Boolean(q.progress[0]?.claimedAt),
+    // userId=null → include เป็น undefined → q.progress ไม่มีคีย์ (ไม่ใช่ array)
+    progress: q.progress?.[0]?.progress ?? 0,
+    completed: Boolean(q.progress?.[0]?.completedAt),
+    claimed: Boolean(q.progress?.[0]?.claimedAt),
   }));
 }
 

@@ -32,6 +32,8 @@ const LIMITS = {
   "daily-claim": { limit: 6, window: "1 h" },
   "creator-profile": { limit: 10, window: "1 h" },
   "quest-write": { limit: 20, window: "1 h" },
+  // เปิด checkout / ยืนยันการชำระเงิน — เผื่อ retry แต่กันยิงรัว
+  purchase: { limit: 10, window: "1 h" },
 } as const;
 
 export type RateLimitName = keyof typeof LIMITS;

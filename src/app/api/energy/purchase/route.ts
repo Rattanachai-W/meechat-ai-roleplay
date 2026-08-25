@@ -1,42 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { jsonErrorResponse, requireUserId, ApiError } from "@/lib/api/errors";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { grantEnergy } from "@/lib/energy/service";
 import { EnergyTransactionType } from "@/generated/prisma/client";
+import {
+  ENERGY_PACKAGES,
+  createEnergyCheckout,
+  resolvePaymentsMode,
+} from "@/lib/payments/service";
 
 /**
  * Energy top-up shop (docs/creator-system.md §5)
  *
- * แพ็กเกจอยู่ในโค้ดชั่วคราว — ย้ายลง DB ตอนต่อ payment gateway
- * - PAYMENTS_ENABLED=false (default): POST → 503 PAYMENTS_DISABLED
- * - PAYMENTS_ENABLED=true + PAYMENTS_MODE=mock: credit ทันที (dev/E2E — ไม่มีเงินจริง)
- *   TODO(payment-gateway): mode จริง (stripe/omise) → รับ provider session id,
- *   verify ฝั่ง webhook ก่อน credit เสมอ; idempotencyKey = `${provider}:${sessionId}`
+ * แพ็กเกจ + logic ชำระเงินอยู่ที่ src/lib/payments/service.ts
+ * - mode off   : POST → 503 PAYMENTS_DISABLED
+ * - mode mock  : credit ทันที (dev/E2E — ไม่มีเงินจริง)
+ * - mode stripe: สร้าง Checkout Session → คืน checkoutUrl ให้ redirect
+ *                เงินเข้ากระเป๋าหลัง webhook /api/webhooks/stripe
+ *                หรือ POST /api/energy/confirm เมื่อผู้ใช้กลับมาถึง success_url
  */
-
-export interface EnergyPackage {
-  id: string;
-  coins: number;
-  priceThb: number;
-  label: string;
-}
-
-export const ENERGY_PACKAGES: EnergyPackage[] = [
-  { id: "coins_500", coins: 500, priceThb: 99, label: "500 พลังงาน" },
-  { id: "coins_1200", coins: 1200, priceThb: 199, label: "1,200 พลังงาน (โบนัส 20%)" },
-  { id: "coins_3000", coins: 3000, priceThb: 449, label: "3,000 พลังงาน (โบนัส 40%)" },
-];
 
 const purchaseSchema = z.object({ packageId: z.string().trim().min(1).max(60) });
 
-function paymentsMode(): "off" | "mock" | "gateway" {
-  if (process.env.PAYMENTS_ENABLED !== "true") return "off";
-  return process.env.PAYMENTS_MODE === "mock" ? "mock" : "gateway";
-}
-
 /** GET /api/energy/purchase — catalog + สถานะระบบชำระเงิน (mode ให้ UI โชว์ป้าย "โหมดทดสอบ") */
 export async function GET() {
-  const mode = paymentsMode();
+  const mode = resolvePaymentsMode();
   return NextResponse.json({
     packages: ENERGY_PACKAGES,
     paymentsEnabled: mode !== "off",
@@ -46,22 +35,32 @@ export async function GET() {
 
 /**
  * POST /api/energy/purchase {packageId}
- * mock mode: credit ทันที — idempotency key ต่อ request (กดซ้ำ = ซื้อซ้ำ ตั้งใจ เหมือนกดซื้อจริง)
+ * mock mode: credit ทันที; stripe mode: คืน checkoutUrl (ยังไม่เครดิต — รอจ่ายจริง)
  */
 export async function POST(request: NextRequest) {
   try {
     const userId = await requireUserId();
+    await enforceRateLimit("purchase", userId);
     const body = purchaseSchema.parse(await request.json());
     const pkg = ENERGY_PACKAGES.find((p) => p.id === body.packageId);
     if (!pkg) throw new ApiError("NOT_FOUND", "ไม่พบแพ็กเกจนี้");
 
-    const mode = paymentsMode();
+    const mode = resolvePaymentsMode();
     if (mode === "off") throw new ApiError("PAYMENTS_DISABLED");
-    if (mode !== "mock") {
-      // TODO(payment-gateway): verify session/webhook กับ provider ก่อน credit
-      throw new ApiError("PAYMENTS_DISABLED", "ยังไม่รองรับ payment gateway จริง");
+
+    if (mode === "stripe") {
+      // origin จาก header กัน mismatch เวลารันหลัง proxy/port ต่าง
+      const origin =
+        request.headers.get("origin") ?? new URL(request.url).origin;
+      const checkout = await createEnergyCheckout({ pkg, userId, origin });
+      return NextResponse.json({
+        checkoutUrl: checkout.checkoutUrl,
+        sessionId: checkout.sessionId,
+        mode,
+      });
     }
 
+    // mock mode — idempotency key ต่อ request (กดซ้ำ = ซื้อซ้ำ ตั้งใจ เหมือนกดซื้อจริง)
     await grantEnergy({
       userId,
       amount: pkg.coins,

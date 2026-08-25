@@ -21,7 +21,6 @@ interface ChatViewProps {
   conversationId: string;
   characterId: string;
   characterName: string;
-  characterSlug: string;
   avatarUrl: string | null;
   intimacyLevel: number;
   intimacyLabel: string;
@@ -247,7 +246,7 @@ export function ChatView(props: ChatViewProps) {
       {/* Header */}
       <header className="flex items-center gap-3 border-b border-border pb-3">
         <Button asChild variant="ghost" size="icon" className="rounded-full">
-          <Link href={`/character/${props.characterSlug}`} aria-label="กลับไปหน้าตัวละคร">
+          <Link href={`/character/${props.characterId}`} aria-label="กลับไปหน้าตัวละคร">
             <ArrowLeft className="size-5" aria-hidden />
           </Link>
         </Button>

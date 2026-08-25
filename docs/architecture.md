@@ -132,6 +132,10 @@ docs/                       # เอกสารชุดนี้
 - Character เก็บแบบ **structured fields** (personality/scenario/style/examples แยกกัน) — Prompt Builder ประกอบตอน runtime ไม่ใช่ system prompt string เดียว
 - Message รองรับ regenerate variants ด้วย `parent_message_id + variant_index + is_active_variant`
 - Energy เป็น double-entry-ish ledger: `balance_before/balance_after` + `idempotency_key` กัน double charge; wallet แยก `free_balance` (daily) กับ `paid_balance`
+- Payment = **Stripe Checkout** (redirect, THB) — ไม่มีตาราง payments เพิ่ม: session metadata
+  (userId/packageId/coins) snapshot ตอนสร้าง checkout, เครดิตผ่าน ledger idempotencyKey
+  `stripe:{sessionId}` unique อยู่แล้ว → webhook (`checkout.session.completed`) กับ confirm-on-return
+  (`/api/energy/confirm`) ชนกันได้ปลอดภัย โดยเครดิตเกิดครั้งเดียว (`src/lib/payments/service.ts`)
 - Counters (`chat_count`, `like_count`, `favorite_count`) เป็น denormalized เพื่อ listing performance และ update แบบ transactional
 - Intimacy level **ไม่เก็บลง DB** — derive จาก `character_affinities.points` ในโค้ด (`src/lib/quests/intimacy.ts`)
   เพื่อให้แก้ threshold ได้โดยไม่ต้อง migrate; directive ของเลเวลถูก inject เข้า system prompt

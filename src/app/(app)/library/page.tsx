@@ -36,7 +36,7 @@ export default async function LibraryPage(props: PageProps<"/library">) {
           include: {
             character: {
               select: {
-                slug: true, name: true, tagline: true, avatarUrl: true, contentRating: true,
+                id: true, slug: true, name: true, tagline: true, avatarUrl: true, contentRating: true,
                 chatCount: true, likeCount: true, favoriteCount: true,
                 creator: { select: { username: true } },
                 characterTags: { select: { tag: { select: { slug: true } } } },
@@ -53,7 +53,7 @@ export default async function LibraryPage(props: PageProps<"/library">) {
           include: {
             character: {
               select: {
-                slug: true, name: true, tagline: true, avatarUrl: true, contentRating: true,
+                id: true, slug: true, name: true, tagline: true, avatarUrl: true, contentRating: true,
                 chatCount: true, likeCount: true, favoriteCount: true,
                 creator: { select: { username: true } },
                 characterTags: { select: { tag: { select: { slug: true } } } },
