@@ -228,3 +228,19 @@ Goal types: MESSAGES / STREAK_DAYS / AI_TOPIC — แรงบันดาลใ
   → mode เปลี่ยนเป็น stripe อัตโนมัติ; production เพิ่ม webhook endpoint `/api/webhooks/stripe`
   (event checkout.session.completed) แล้วใส่ `STRIPE_WEBHOOK_SECRET`; local ทดสอบได้ด้วย
   confirm fallback โดยไม่ต้องต่อ stripe CLI
+
+## ✅ M13 — Facebook Login (เสร็จแล้ว*)
+
+Social login ช่องทางที่ 2 (ถัดจาก Google) — โครง Supabase OAuth เดิมใช้ซ้ำทันที:
+ปุ่ม "ดำเนินการต่อด้วย Facebook" บนหน้า login (`signInWithOAuth({ provider: "facebook" })`,
+redirect กลับ `/auth/callback` ที่มีอยู่แล้ว)
+
+- [x] UI: ปุ่ม Facebook (brand SVG #1877F2) คู่กับ Google ใน AuthForm — error toast ภาษาไทย
+- [x] Callback/email-confirm flow ใช้ `/auth/callback` route เดิม — ไม่แตะ DB (mirror trigger รับ user ใหม่อัตโนมัติ)
+- [ ] *ฝั่ง dashboard (ผู้ใช้ต้องทำเอง):* สร้าง App ที่ developers.facebook.com → เอา App ID/Secret
+  ไปเปิดที่ Supabase Dashboard → Authentication → Providers → Facebook; ใส่ redirect URI
+  `https://yauoirkmvouoownxtbhr.supabase.co/auth/v1/callback` ใน Facebook Login settings
+  (จนกว่าจะเปิด authorize endpoint จะตอบ 400 "Unsupported provider")
+
+Verification: tsc clean · หน้า /login 200 แสดงปุ่มครบทั้ง Google + Facebook ·
+authorize endpoint ตรวจสถานะ provider แล้ว (ยัง disabled — รอ config ฝั่ง dashboard)

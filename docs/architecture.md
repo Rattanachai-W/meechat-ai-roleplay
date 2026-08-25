@@ -129,6 +129,9 @@ docs/                       # เอกสารชุดนี้
 จุดออกแบบสำคัญ:
 
 - `users.id` mirror กับ `auth.users.id` ผ่าน SQL trigger (`supabase/sql/001_auth_triggers_rls.sql`)
+- Social login = Supabase Auth OAuth (email/password + Google + Facebook) — client เรียก
+  `signInWithOAuth({ redirectTo: "/auth/callback" })`, callback route แลก code เป็น session;
+  เปิด/ปิด provider และ App ID/Secret จัดการที่ Supabase Dashboard (ไม่มี credential ใน repo)
 - Character เก็บแบบ **structured fields** (personality/scenario/style/examples แยกกัน) — Prompt Builder ประกอบตอน runtime ไม่ใช่ system prompt string เดียว
 - Message รองรับ regenerate variants ด้วย `parent_message_id + variant_index + is_active_variant`
 - Energy เป็น double-entry-ish ledger: `balance_before/balance_after` + `idempotency_key` กัน double charge; wallet แยก `free_balance` (daily) กับ `paid_balance`
