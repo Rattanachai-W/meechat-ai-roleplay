@@ -205,21 +205,55 @@ function bangkokToday(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date());
 }
 
+/**
+ * จำนวนพลังงานแจกรายวัน — อ่านจาก app_settings (key=daily_reward_amount)
+ * MVP: แอดมินปรับใน DB ตรง ๆ:
+ *   update app_settings set value='75', updated_at=now() where key='daily_reward_amount';
+ * ค่าไม่มี/เพี้ยน → fallback ค่าคงที่ DAILY_REWARD_AMOUNT
+ */
+export async function getDailyRewardAmount(): Promise<number> {
+  const row = await prisma.appSetting.findUnique({ where: { key: "daily_reward_amount" } });
+  if (!row) return DAILY_REWARD_AMOUNT;
+  const n = Number(row.value);
+  return Number.isInteger(n) && n >= 1 && n <= 100_000 ? n : DAILY_REWARD_AMOUNT;
+}
+
+/** เคลมพลังงานรายวันของ user นี้ไปแล้วหรือยัง (ดูจาก ledger idempotency key) */
+export async function hasClaimedDaily(userId: string): Promise<boolean> {
+  const today = bangkokToday();
+  const row = await prisma.energyTransaction.findFirst({
+    where: { userId, type: EnergyTransactionType.DAILY_REWARD, idempotencyKey: `daily:${userId}:${today}` },
+    select: { id: true },
+  });
+  return Boolean(row);
+}
+
+/** สถานะปุ่มรับรางวัลรายวัน — ใช้ทั้ง nav และหน้า wallet */
+export async function getDailyClaimStatus(userId: string): Promise<{
+  claimedToday: boolean;
+  amount: number;
+}> {
+  const [claimedToday, amount] = await Promise.all([hasClaimedDaily(userId), getDailyRewardAmount()]);
+  return { claimedToday, amount };
+}
+
 /** รับพลังงานรายวัน — idempotent ต่อ user ต่อวัน (คืน claimed=false ถ้ารับไปแล้ว) */
 export async function claimDailyReward(userId: string): Promise<{
   claimed: boolean;
   amount: number;
   wallet: WalletSummary;
 }> {
-  const idempotencyKey = `daily:${userId}:${bangkokToday()}`;
+  const today = bangkokToday();
+  const amount = await getDailyRewardAmount();
+  const idempotencyKey = `daily:${userId}:${today}`;
   try {
     await grantEnergy({
       userId,
-      amount: DAILY_REWARD_AMOUNT,
+      amount,
       type: EnergyTransactionType.DAILY_REWARD,
       idempotencyKey,
       referenceType: "daily_reward",
-      referenceId: bangkokToday(),
+      referenceId: today,
     });
   } catch (error) {
     // P2002 = unique violation ที่ idempotencyKey → เคลมไปแล้ววันนี้
@@ -233,5 +267,5 @@ export async function claimDailyReward(userId: string): Promise<{
     }
     throw error;
   }
-  return { claimed: true, amount: DAILY_REWARD_AMOUNT, wallet: await getOrCreateWalletSummary(userId) };
+  return { claimed: true, amount, wallet: await getOrCreateWalletSummary(userId) };
 }

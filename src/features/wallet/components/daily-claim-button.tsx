@@ -6,7 +6,13 @@ import { Gift, Loader2, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
-export function DailyClaimButton({ initialClaimedToday }: { initialClaimedToday: boolean }) {
+export function DailyClaimButton({
+  initialClaimedToday,
+  amount,
+}: {
+  initialClaimedToday: boolean;
+  amount: number;
+}) {
   const router = useRouter();
   const [claimed, setClaimed] = useState(initialClaimedToday);
   const [loading, setLoading] = useState(false);
@@ -43,7 +49,7 @@ export function DailyClaimButton({ initialClaimedToday }: { initialClaimedToday:
       ) : (
         <Gift className="size-4" aria-hidden />
       )}
-      {claimed ? "วันนี้รับแล้ว" : "รับพลังงานรายวัน +50"}
+      {claimed ? "วันนี้รับแล้ว" : `รับพลังงานรายวัน +${amount}`}
     </Button>
   );
 }

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { NavDailyClaim } from "@/features/shell/components/nav-daily-claim";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -83,6 +84,8 @@ export function AppShell({
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
+            {user && <NavDailyClaim />}
+
             {user && walletTotal !== null && (
               <Link
                 href="/wallet"

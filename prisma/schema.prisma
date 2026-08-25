@@ -331,6 +331,15 @@ model CharacterAffinity {
   @@map("character_affinities")
 }
 
+// Config ระดับแอปแบบ KV — MVP แอดมินแก้ค่าใน DB ตรง ๆ เช่น daily_reward_amount
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("app_settings")
+}
+
 // ─────────────────────── Conversations & Messages ───────────────────────
 
 model Conversation {

@@ -121,6 +121,7 @@ docs/                       # เอกสารชุดนี้
 | Energy | `energy_wallets`, `energy_transactions` (append-only ledger) |
 | AI Ops | `ai_models`, `ai_usage_logs` |
 | Quests & Affinity | `character_quests`, `user_quest_progress`, `character_affinities` (ค่าความสนิท user↔character, unique ต่อคู่) |
+| App Settings | `app_settings` (KV — MVP แอดมินแก้ SQL ตรง ๆ เช่น `daily_reward_amount`; app fallback ค่า default เมื่อค่าหาย/เพี้ยน) |
 
 > หมายเหตุ: ตาราง `reports` (moderation stub จาก ERD เริ่มต้น) ถูกลบออกเมื่อ 2026-08-24
 > เพราะไม่มี feature ใดใช้ (0 rows, ไม่มี API/UI) — DDL backup: `backups/reports-table-backup.sql`,

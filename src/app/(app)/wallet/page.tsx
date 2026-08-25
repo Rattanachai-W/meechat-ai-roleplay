@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { Zap, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { getOrCreateWalletSummary } from "@/lib/energy/service";
+import { getOrCreateWalletSummary, getDailyClaimStatus } from "@/lib/energy/service";
 import { prisma } from "@/lib/db/prisma";
 import { DailyClaimButton } from "@/features/wallet/components/daily-claim-button";
 import { EnergyShop } from "@/features/wallet/components/energy-shop";
@@ -22,32 +22,18 @@ const TYPE_LABELS: Record<string, string> = {
   SUBSCRIPTION: "สมาชิก",
 };
 
-/** ตรวจว่าเคลมวันนี้ (Asia/Bangkok) ไปหรือยัง — ดูจาก ledger */
-async function claimedToday(userId: string): Promise<boolean> {
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date());
-  const row = await prisma.energyTransaction.findFirst({
-    where: {
-      userId,
-      type: "DAILY_REWARD",
-      idempotencyKey: `daily:${userId}:${today}`,
-    },
-    select: { id: true },
-  });
-  return Boolean(row);
-}
-
 export default async function WalletPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const [wallet, transactions, claimed] = await Promise.all([
+  const [wallet, transactions, claimStatus] = await Promise.all([
     getOrCreateWalletSummary(user.id),
     prisma.energyTransaction.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
       take: 30,
     }),
-    claimedToday(user.id),
+    getDailyClaimStatus(user.id),
   ]);
 
   return (
@@ -70,7 +56,10 @@ export default async function WalletPage() {
             </p>
           </div>
           <div className="ml-auto">
-            <DailyClaimButton initialClaimedToday={claimed} />
+            <DailyClaimButton
+              initialClaimedToday={claimStatus.claimedToday}
+              amount={claimStatus.amount}
+            />
           </div>
         </CardContent>
       </Card>

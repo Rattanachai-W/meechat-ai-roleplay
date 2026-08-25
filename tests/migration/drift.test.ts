@@ -26,7 +26,7 @@ const MEECHAT_TABLES = [
   "users", "creator_profiles", "characters", "tags", "character_tags", "character_examples",
   "conversations", "messages", "memories", "conversation_summaries", "favorites", "character_likes",
   "creator_follows", "energy_wallets", "energy_transactions", "ai_models", "ai_usage_logs",
-  "user_personas", "character_quests", "user_quest_progress", "character_affinities", "creator_earnings",
+  "user_personas", "character_quests", "user_quest_progress", "character_affinities", "creator_earnings", "app_settings",
 ];
 
 beforeAll(async () => {

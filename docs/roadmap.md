@@ -244,3 +244,19 @@ redirect กลับ `/auth/callback` ที่มีอยู่แล้ว)
 
 Verification: tsc clean · หน้า /login 200 แสดงปุ่มครบทั้ง Google + Facebook ·
 authorize endpoint ตรวจสถานะ provider แล้ว (ยัง disabled — รอ config ฝั่ง dashboard)
+
+## ✅ M14 — ปุ่มรับรางวัลรายวันบน nav + จำนวนแจกปรับได้จาก DB (เสร็จแล้ว)
+
+- [x] Migration `20260825000000_app_settings` *(manual — shared DB)*: ตาราง KV `app_settings`
+  + seed `daily_reward_amount=50` — MVP แอดมินปรับใน DB ตรง ๆ:
+  `update app_settings set value='75', updated_at=now() where key='daily_reward_amount';`
+- [x] `getDailyRewardAmount()` อ่านค่าจาก DB ทุกครั้งที่เคลม/โหลดสถานะ — ค่าไม่มี/ไม่ใช่เลข
+  1–100k → fallback ค่าคงที่ 50 (`src/lib/energy/service.ts`)
+- [x] GET `/api/energy/daily-claim` → `{claimedToday, amount}` (ไม่เคลม) ให้ nav ใช้
+- [x] ปุ่มกล่องของขวัญ**สีแดง**บน nav (`NavDailyClaim`): ยังไม่รับ = Gift เด่น + badge จุดกะพริบ
+  + "+N", รับแล้ว = เทา + ✓, ไม่ล็อกอิน = ซ่อน; claim → toast + refresh chip พลังงาน
+- [x] หน้า wallet refactor: ใช้ `getDailyClaimStatus` รวมศูนย์ (ลบ query ซ้ำใน page),
+  DailyClaimButton โชว์ amount จริงจาก server
+
+Verification log: tsc clean · daily-settings 6/6 (default/ตั้ง 75 เคลมได้จริง/idempotent/
+fallback 3 กรณี) + drift + pricing 18/18 · smoke จริงบน dev: GET status ✓ ปุ่ม render ✓ POST +50 ✓
