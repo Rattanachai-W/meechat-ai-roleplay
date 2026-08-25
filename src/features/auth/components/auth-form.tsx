@@ -183,7 +183,9 @@ export function AuthForm() {
           ดำเนินการต่อด้วย Google
         </Button>
 
-        <Button variant="outline" type="button" className="w-full" onClick={signInWithFacebook} disabled={loading}>
+        {/* TODO(auth): เปิดใช้เมื่อ enable provider Facebook ใน Supabase Dashboard แล้ว
+            (ตอนนี้ authorize endpoint ตอบ 400 Unsupported provider) */}
+        <Button variant="outline" type="button" className="w-full opacity-60" disabled title="ยังไม่เปิดใช้งาน — กำลังตั้งค่าผู้ให้บริการ">
           <svg viewBox="0 0 24 24" aria-hidden className="size-4">
             <path
               fill="#1877F2"
@@ -195,6 +197,7 @@ export function AuthForm() {
             />
           </svg>
           ดำเนินการต่อด้วย Facebook
+          <span className="ml-1 text-xs text-muted-foreground">(เร็ว ๆ นี้)</span>
         </Button>
       </div>
     </Tabs>
