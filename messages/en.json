@@ -210,7 +210,13 @@
     "pointsOnly": "{points} points",
     "claimSuccessAffinity": "Intimacy +{amount} · Lv.{level} {label}",
     "noQuestsForCharacter": "No quests for this character yet",
-    "loadQuestsFailed": "Could not load quests"
+    "loadQuestsFailed": "Could not load quests",
+    "kickOverlayTitle": "Kicked from the conversation",
+    "kickOverlayBody": "{name} refuses to continue. This chat room ends here.",
+    "kickOverlayDismiss": "Dismiss",
+    "kickStartNew": "Start a new chat with {name}",
+    "kickLockedBanner": "This conversation has ended. You can read the history, but you cannot send more messages.",
+    "kickStarting": "Opening a new chat..."
   },
   "Persona": {
     "title": "My personas",

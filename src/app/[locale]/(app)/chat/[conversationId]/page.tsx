@@ -46,6 +46,8 @@ export default async function ChatPage(props: {
       avatarUrl={conversation.character.avatarUrl}
       intimacyLevel={affinityLv.level}
       intimacyLabel={intimacyLabel}
+      endedAt={conversation.endedAt?.toISOString() ?? null}
+      endedReason={conversation.endedReason ?? null}
     />
   );
 }

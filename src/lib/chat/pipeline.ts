@@ -19,6 +19,11 @@ import { maybeExtractMemories } from "@/lib/memory/extraction";
 import { maybeUpdateSummary } from "@/lib/memory/summary";
 import { bumpChatQuestProgress, judgeAiTopicQuests, getAffinitySummary } from "@/lib/quests/service";
 import { intimacyForPrompt, pointsToLevel } from "@/lib/quests/intimacy";
+import {
+  assertConversationOpen,
+  judgeConversationKick,
+  shouldApplyKick,
+} from "@/lib/chat/kick-judge";
 import type { AppLocale } from "@/i18n/routing";
 
 /**
@@ -39,6 +44,7 @@ export interface PreparedChat {
   userId: string;
   characterId: string;
   characterName: string;
+  characterPersonality: string | null;
   /** userId ของครีเอเตอร์เจ้าของตัวละคร (สำหรับ share-of-energy; null = ไม่มี) */
   creatorUserId: string | null;
   idempotencyKey: string;
@@ -89,6 +95,7 @@ export async function prepareChat(opts: {
   if (!conversation || conversation.userId !== opts.userId) {
     throw new ApiError("NOT_FOUND", "ไม่พบบทสนทนา");
   }
+  assertConversationOpen(conversation.endedAt);
 
   // ── หาข้อความล่าสุดแบบ active variant ──
   let historyMessages = await prisma.message.findMany({
@@ -206,6 +213,7 @@ export async function prepareChat(opts: {
     userId: opts.userId,
     characterId: conversation.character.id,
     characterName: conversation.character.name,
+    characterPersonality: conversation.character.personality ?? null,
     creatorUserId: conversation.character.creator?.userId ?? null,
     idempotencyKey,
     reservedAmount,
@@ -314,11 +322,55 @@ export function createChatStream(prepared: PreparedChat): ReadableStream<Uint8Ar
           .catch(() => {});
         settled = true;
 
+        let kickedPayload: {
+          conversationId: string;
+          messageId: string;
+          reason?: string;
+        } | null = null;
+        try {
+          const activeCount = await prisma.message.count({
+            where: { conversationId: prepared.conversationId, isActiveVariant: true },
+          });
+          const recent = await prisma.message.findMany({
+            where: { conversationId: prepared.conversationId, isActiveVariant: true },
+            orderBy: { createdAt: "desc" },
+            take: 10,
+            select: { role: true, content: true },
+          });
+          recent.reverse();
+          const transcript = recent
+            .map((m) => `${m.role === "USER" ? "User" : "Character"}: ${m.content}`)
+            .join("\n");
+          const judged = await judgeConversationKick({
+            characterName: prepared.characterName,
+            personality: prepared.characterPersonality,
+            transcript,
+            assistantReply: fullText,
+            activeMessageCount: activeCount,
+          });
+          if (shouldApplyKick(judged)) {
+            await prisma.conversation.update({
+              where: { id: prepared.conversationId },
+              data: { endedAt: new Date(), endedReason: "KICKED" },
+            });
+            kickedPayload = {
+              conversationId: prepared.conversationId,
+              messageId: saved.id,
+              reason: judged.reason || undefined,
+            };
+          }
+        } catch {
+          // fail-open: never block the reply stream because of kick judge
+        }
+
+        if (kickedPayload) enqueue("kicked", kickedPayload);
+
         enqueue("done", {
           messageId: saved.id,
           content: saved.content,
           usage: { promptTokens: finalPromptTokens, completionTokens: finalCompletionTokens },
           energy: { reserved: prepared.reservedAmount, charged: actualCost },
+          kicked: Boolean(kickedPayload),
         });
 
         // post-message background jobs (memory + summary) — ก่อนปิด stream

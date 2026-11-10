@@ -21,6 +21,7 @@ export type ApiErrorCode =
   | "LLM_TIMEOUT"
   | "PAYMENTS_DISABLED"
   | "PAYMENT_FAILED"
+  | "CONVERSATION_ENDED"
   | "INTERNAL_ERROR";
 
 const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
@@ -35,6 +36,7 @@ const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
   LLM_TIMEOUT: 504,
   PAYMENTS_DISABLED: 503,
   PAYMENT_FAILED: 402,
+  CONVERSATION_ENDED: 409,
   INTERNAL_ERROR: 500,
 };
 

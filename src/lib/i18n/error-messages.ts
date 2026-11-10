@@ -13,6 +13,7 @@ const TH: Record<ApiErrorCode, string> = {
   LLM_TIMEOUT: "AI ใช้เวลาตอบนานเกินไป กรุณาลองอีกครั้ง",
   PAYMENTS_DISABLED: "ระบบชำระเงินยังไม่เปิดใช้งาน รับพลังงานรายวันได้ที่หน้า Wallet",
   PAYMENT_FAILED: "การชำระเงินยังไม่สำเร็จหรือถูกยกเลิก — ไม่มีการตัดเงิน",
+  CONVERSATION_ENDED: "การสนทนานี้จบแล้ว เริ่มแชทใหม่กับตัวละครนี้ได้",
   INTERNAL_ERROR: "เกิดข้อผิดพลาดภายในระบบ กรุณาลองอีกครั้ง",
 };
 
@@ -28,6 +29,7 @@ const EN: Record<ApiErrorCode, string> = {
   LLM_TIMEOUT: "The AI took too long to reply. Please try again",
   PAYMENTS_DISABLED: "Payments are not enabled yet. Claim daily energy on the Wallet page",
   PAYMENT_FAILED: "Payment was not completed or was cancelled — you were not charged",
+  CONVERSATION_ENDED: "This conversation has ended. You can start a new chat with this character",
   INTERNAL_ERROR: "Something went wrong. Please try again",
 };
 

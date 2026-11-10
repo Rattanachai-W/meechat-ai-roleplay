@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { QuestPanel } from "@/features/chat/components/quest-panel";
+import { KickOverlay } from "@/features/chat/components/kick-overlay";
 
 interface UiMessage {
   id: string;
@@ -24,12 +25,19 @@ interface ChatViewProps {
   avatarUrl: string | null;
   intimacyLevel: number;
   intimacyLabel: string;
+  endedAt: string | null;
+  endedReason: string | null;
 }
 
 /** parse SSE stream (event/data pairs) — callback ต่อ event */
 async function consumeSse(
   res: Response,
-  handlers: { onDelta?: (t: string) => void; onDone?: (d: Record<string, unknown>) => void; onError?: (d: Record<string, unknown>) => void },
+  handlers: {
+    onDelta?: (t: string) => void;
+    onDone?: (d: Record<string, unknown>) => void;
+    onError?: (d: Record<string, unknown>) => void;
+    onKicked?: (d: Record<string, unknown>) => void;
+  },
   signal?: AbortSignal
 ) {
   const reader = res.body!.getReader();
@@ -56,6 +64,7 @@ async function consumeSse(
           if (name === "delta") handlers.onDelta?.(String(parsed.text ?? ""));
           else if (name === "done") handlers.onDone?.(parsed);
           else if (name === "error") handlers.onError?.(parsed);
+          else if (name === "kicked") handlers.onKicked?.(parsed);
         } catch {
           // ignore malformed chunk
         }
@@ -76,6 +85,8 @@ export function ChatView(props: ChatViewProps) {
   const [input, setInput] = useState("");
   const [variantCounts, setVariantCounts] = useState<Record<string, number>>({});
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [ended, setEnded] = useState(Boolean(props.endedAt));
+  const [showKickOverlay, setShowKickOverlay] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -115,6 +126,7 @@ export function ChatView(props: ChatViewProps) {
 
       let acc = "";
       let donePayload: Record<string, unknown> | null = null;
+      let wasKicked = false;
 
       try {
         const res = await fetch(url, {
@@ -128,6 +140,9 @@ export function ChatView(props: ChatViewProps) {
           const err = (await res.json().catch(() => null)) as
             | { error?: { code?: string; message?: string } }
             | null;
+          if (err?.error?.code === "CONVERSATION_ENDED") {
+            setEnded(true);
+          }
           throw new Error(err?.error?.message ?? `HTTP ${res.status}`);
         }
 
@@ -140,6 +155,11 @@ export function ChatView(props: ChatViewProps) {
             },
             onDone: (d) => {
               donePayload = d;
+            },
+            onKicked: () => {
+              wasKicked = true;
+              setEnded(true);
+              setShowKickOverlay(true);
             },
             onError: (d) => {
               throw new Error(String(d.code ?? "INTERNAL_ERROR"));
@@ -196,6 +216,10 @@ export function ChatView(props: ChatViewProps) {
 
         setStreamingText(null);
         setIsStreaming(false);
+        if (wasKicked || Boolean(donePayload && (donePayload as { kicked?: boolean }).kicked)) {
+          setEnded(true);
+          setShowKickOverlay(true);
+        }
         // แชทจบ = wallet ถูกหัก/คืนแล้ว — refresh ให้ badge พลังงานใน header ตามปัจจุบัน
         if (donePayload) router.refresh();
       }
@@ -205,7 +229,7 @@ export function ChatView(props: ChatViewProps) {
 
   function send() {
     const content = input.trim();
-    if (!content || isStreaming) return;
+    if (!content || isStreaming || ended) return;
     setInput("");
     setMessages((prev) => [...prev, { id: `local-u-${Date.now()}`, role: "user", content }]);
     void runStream("/api/chat", { conversationId: props.conversationId, content });
@@ -216,7 +240,7 @@ export function ChatView(props: ChatViewProps) {
   }
 
   function regenerate(messageId: string) {
-    if (isStreaming) return;
+    if (isStreaming || ended) return;
     setStreamingText("");
     void runStream(`/api/messages/${messageId}/regenerate`, {}, { replaceMessageId: messageId });
   }
@@ -244,6 +268,7 @@ export function ChatView(props: ChatViewProps) {
   }
 
   return (
+    <>
     <div className="mx-auto flex h-[calc(100dvh-3.5rem-2rem)] max-w-3xl flex-col md:h-[calc(100dvh-3.5rem-4rem)]">
       <header className="flex items-center gap-2 border-b border-border/70 pb-3 sm:gap-3">
         <Button asChild variant="ghost" size="icon" className="rounded-full">
@@ -285,7 +310,7 @@ export function ChatView(props: ChatViewProps) {
             message={m}
             characterName={props.characterName}
             variantCount={m.parentMessageId ? (variantCounts[m.parentMessageId] ?? 0) : 0}
-            disabled={isStreaming}
+            disabled={isStreaming || ended}
             onRegenerate={() => regenerate(m.id)}
             onSwitch={(dir) => switchVariant(m, dir)}
           />
@@ -321,6 +346,14 @@ export function ChatView(props: ChatViewProps) {
       </div>
 
       <footer className="sticky bottom-16 space-y-1.5 border-t border-border/70 bg-background/95 pt-3 backdrop-blur md:bottom-0">
+        {ended ? (
+          <div
+            className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-300"
+            role="status"
+          >
+            {t("kickLockedBanner")}
+          </div>
+        ) : null}
         <div className="flex items-end gap-2">
           <Textarea
             value={input}
@@ -334,7 +367,7 @@ export function ChatView(props: ChatViewProps) {
             rows={1}
             placeholder={t("placeholder", { name: props.characterName })}
             className="max-h-36 min-h-11 flex-1 resize-none rounded-2xl border-border/80 bg-muted/25 shadow-none"
-            disabled={isStreaming}
+            disabled={isStreaming || ended}
             aria-label={t("messageLabel")}
           />
           {isStreaming ? (
@@ -346,7 +379,7 @@ export function ChatView(props: ChatViewProps) {
               onClick={send}
               size="icon"
               className="size-11 shrink-0 rounded-full"
-              disabled={input.trim().length === 0}
+              disabled={ended || input.trim().length === 0}
               aria-label={t("send")}
             >
               <Send className="size-4" aria-hidden />
@@ -356,6 +389,14 @@ export function ChatView(props: ChatViewProps) {
         <p className="pb-1 text-center text-[10px] text-muted-foreground">{t("hint")}</p>
       </footer>
     </div>
+    <KickOverlay
+      characterId={props.characterId}
+      characterName={props.characterName}
+      avatarUrl={props.avatarUrl}
+      open={showKickOverlay}
+      onDismiss={() => setShowKickOverlay(false)}
+    />
+    </>
   );
 }
 

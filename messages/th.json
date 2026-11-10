@@ -210,7 +210,13 @@
     "pointsOnly": "{points} คะแนน",
     "claimSuccessAffinity": "ความสนิท +{amount} · Lv.{level} {label}",
     "noQuestsForCharacter": "ยังไม่มีภารกิจสำหรับตัวละครนี้",
-    "loadQuestsFailed": "โหลดภารกิจไม่สำเร็จ"
+    "loadQuestsFailed": "โหลดภารกิจไม่สำเร็จ",
+    "kickOverlayTitle": "ถูกไล่จากบทสนทนา",
+    "kickOverlayBody": "{name} ไม่ยอมคุยต่อแล้ว ห้องนี้จบเพียงเท่านี้",
+    "kickOverlayDismiss": "ปิด",
+    "kickStartNew": "เริ่มแชทใหม่กับ {name}",
+    "kickLockedBanner": "การสนทนานี้จบแล้ว อ่านประวัติได้ แต่ส่งข้อความต่อไม่ได้",
+    "kickStarting": "กำลังเปิดแชทใหม่..."
   },
   "Persona": {
     "title": "ตัวตนของฉัน",
