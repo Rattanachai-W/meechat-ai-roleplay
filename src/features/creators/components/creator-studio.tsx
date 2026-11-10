@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import {
   BookUser,
   Coins,
@@ -28,6 +28,8 @@ interface CreatorProfile {
   bio: string | null;
   avatarUrl: string | null;
   totalEarned: number;
+  payoutStatus?: "NONE" | "PENDING_KYC" | "READY" | "SUSPENDED";
+  kycNote?: string | null;
 }
 
 interface StudioStats {
@@ -214,11 +216,44 @@ export function CreatorStudio() {
           </h1>
           <p className="text-sm text-muted-foreground">
             @{profile.username} • ได้รับ {stats?.totalEarned.toLocaleString("th-TH") ?? 0} coin จากการถูกแชท (10% ของพลังงานที่ใช้)
+            {" · "}
+            payout:{" "}
+            {profile.payoutStatus === "READY"
+              ? "พร้อมถอนเมื่อระบบเปิด"
+              : profile.payoutStatus === "PENDING_KYC"
+                ? "รอตรวจสอบ KYC"
+                : profile.payoutStatus === "SUSPENDED"
+                  ? "ระงับชั่วคราว"
+                  : "ยังไม่ตั้งค่า"}
           </p>
         </div>
-        <Button asChild className="rounded-full">
-          <Link href="/create/character">+ สร้างตัวละครใหม่</Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {(!profile.payoutStatus || profile.payoutStatus === "NONE") && (
+            <Button
+              variant="outline"
+              className="rounded-full"
+              onClick={async () => {
+                const res = await fetch("/api/creator/me/payout", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ action: "request_kyc" }),
+                });
+                if (!res.ok) {
+                  const data = await res.json().catch(() => null);
+                  toast.error(data?.error?.message ?? "ขอ KYC ไม่สำเร็จ");
+                  return;
+                }
+                toast.success("ส่งคำขอ KYC แล้ว — รอตรวจสอบ");
+                window.location.reload();
+              }}
+            >
+              ขอเปิด payout
+            </Button>
+          )}
+          <Button asChild className="rounded-full">
+            <Link href="/create/character">+ สร้างตัวละครใหม่</Link>
+          </Button>
+        </div>
       </header>
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">

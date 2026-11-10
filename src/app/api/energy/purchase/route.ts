@@ -1,42 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { jsonErrorResponse, requireUserId, ApiError } from "@/lib/api/errors";
+import { jsonErrorResponseLocalized, requireUserId, ApiError } from "@/lib/api/errors";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { grantEnergy } from "@/lib/energy/service";
 import { EnergyTransactionType } from "@/generated/prisma/client";
+import { prisma } from "@/lib/db/prisma";
+import { resolveRequestLocale } from "@/lib/i18n/locale";
 import {
   ENERGY_PACKAGES,
   createEnergyCheckout,
+  packageLabel,
   resolvePaymentsMode,
+  type ShopCurrency,
 } from "@/lib/payments/service";
 
-/**
- * Energy top-up shop (docs/creator-system.md §5)
- *
- * แพ็กเกจ + logic ชำระเงินอยู่ที่ src/lib/payments/service.ts
- * - mode off   : POST → 503 PAYMENTS_DISABLED
- * - mode mock  : credit ทันที (dev/E2E — ไม่มีเงินจริง)
- * - mode stripe: สร้าง Checkout Session → คืน checkoutUrl ให้ redirect
- *                เงินเข้ากระเป๋าหลัง webhook /api/webhooks/stripe
- *                หรือ POST /api/energy/confirm เมื่อผู้ใช้กลับมาถึง success_url
- */
+const purchaseSchema = z.object({
+  packageId: z.string().trim().min(1).max(60),
+  currency: z.enum(["THB", "USD"]).optional(),
+});
 
-const purchaseSchema = z.object({ packageId: z.string().trim().min(1).max(60) });
-
-/** GET /api/energy/purchase — catalog + สถานะระบบชำระเงิน (mode ให้ UI โชว์ป้าย "โหมดทดสอบ") */
 export async function GET() {
   const mode = resolvePaymentsMode();
+  const locale = await resolveRequestLocale();
   return NextResponse.json({
-    packages: ENERGY_PACKAGES,
+    packages: ENERGY_PACKAGES.map((pkg) => ({
+      ...pkg,
+      label: packageLabel(pkg, locale),
+    })),
     paymentsEnabled: mode !== "off",
     mode: mode === "off" ? null : mode,
   });
 }
 
-/**
- * POST /api/energy/purchase {packageId}
- * mock mode: credit ทันที; stripe mode: คืน checkoutUrl (ยังไม่เครดิต — รอจ่ายจริง)
- */
 export async function POST(request: NextRequest) {
   try {
     const userId = await requireUserId();
@@ -48,19 +43,31 @@ export async function POST(request: NextRequest) {
     const mode = resolvePaymentsMode();
     if (mode === "off") throw new ApiError("PAYMENTS_DISABLED");
 
+    const prefs = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { preferredCurrency: true, preferredLocale: true },
+    });
+    const currency: ShopCurrency =
+      body.currency ?? (prefs?.preferredCurrency === "USD" ? "USD" : "THB");
+    const locale = prefs?.preferredLocale === "en" ? "en" : "th";
+
     if (mode === "stripe") {
-      // origin จาก header กัน mismatch เวลารันหลัง proxy/port ต่าง
-      const origin =
-        request.headers.get("origin") ?? new URL(request.url).origin;
-      const checkout = await createEnergyCheckout({ pkg, userId, origin });
+      const origin = request.headers.get("origin") ?? new URL(request.url).origin;
+      const checkout = await createEnergyCheckout({
+        pkg,
+        userId,
+        origin,
+        currency,
+        locale,
+      });
       return NextResponse.json({
         checkoutUrl: checkout.checkoutUrl,
         sessionId: checkout.sessionId,
         mode,
+        currency,
       });
     }
 
-    // mock mode — idempotency key ต่อ request (กดซ้ำ = ซื้อซ้ำ ตั้งใจ เหมือนกดซื้อจริง)
     await grantEnergy({
       userId,
       amount: pkg.coins,
@@ -70,12 +77,23 @@ export async function POST(request: NextRequest) {
         .slice(2, 8)}`,
       referenceType: "purchase",
       referenceId: pkg.id,
-      metadata: { priceThb: pkg.priceThb, gateway: "mock" },
+      metadata: {
+        priceThb: pkg.priceThb,
+        priceUsd: pkg.priceUsd,
+        currency,
+        gateway: "mock",
+      },
     });
 
-    return NextResponse.json({ purchased: true, packageId: pkg.id, coins: pkg.coins, mode });
+    return NextResponse.json({
+      purchased: true,
+      packageId: pkg.id,
+      coins: pkg.coins,
+      mode,
+      currency,
+    });
   } catch (error) {
-    return jsonErrorResponse(error);
+    return jsonErrorResponseLocalized(error);
   }
 }
 

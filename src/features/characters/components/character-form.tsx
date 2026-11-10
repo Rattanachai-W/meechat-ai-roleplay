@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { toast } from "sonner";
 import { Loader2, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,9 @@ const EMPTY = {
   name: "",
   tagline: "",
   description: "",
+  taglineEn: "",
+  descriptionEn: "",
+  primaryLanguage: "TH",
   personality: "",
   scenario: "",
   speakingStyle: "",
@@ -78,6 +81,9 @@ export function CharacterForm() {
             name: String(c.name ?? ""),
             tagline: String(c.tagline ?? ""),
             description: String(c.description ?? ""),
+            taglineEn: String(c.taglineEn ?? ""),
+            descriptionEn: String(c.descriptionEn ?? ""),
+            primaryLanguage: String(c.primaryLanguage ?? "TH"),
             personality: String(c.personality ?? ""),
             scenario: String(c.scenario ?? ""),
             speakingStyle: String(c.speakingStyle ?? ""),
@@ -105,6 +111,8 @@ export function CharacterForm() {
       const payload = {
         ...form,
         defaultModelKey: form.defaultModelKey || undefined,
+        taglineEn: form.taglineEn || undefined,
+        descriptionEn: form.descriptionEn || undefined,
         personality: form.personality || undefined,
         scenario: form.scenario || undefined,
         speakingStyle: form.speakingStyle || undefined,
@@ -174,11 +182,29 @@ export function CharacterForm() {
           <Field label="ชื่อตัวละคร *" hint="2-60 ตัวอักษร">
             <Input value={form.name} onChange={(e) => set("name", e.target.value)} maxLength={60} placeholder="เช่น ปราณี หมอกายวิภาค" />
           </Field>
+          <Field label="Primary language">
+            <Select value={form.primaryLanguage} onValueChange={(v) => set("primaryLanguage", v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="TH">Thai</SelectItem>
+                <SelectItem value="EN">English</SelectItem>
+                <SelectItem value="BILINGUAL">Bilingual</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
           <Field label="คำโปรย *" hint="1-2 บรรทัดสรุปเสน่ห์ของตัวละคร">
             <Input value={form.tagline} onChange={(e) => set("tagline", e.target.value)} maxLength={120} placeholder="แพทย์สาวปากแข็งที่ซ่อนความใยดีไว้ใต้หน้ากาก" />
           </Field>
+          <Field label="Tagline (EN)" optional>
+            <Input value={form.taglineEn} onChange={(e) => set("taglineEn", e.target.value)} maxLength={120} />
+          </Field>
           <Field label="เรื่องราว / ตัวตน *" hint="อย่างน้อย 30 ตัวอักษร — พื้นหลัง บุคลิก เป้าหมาย ความสัมพันธ์">
             <Textarea rows={5} value={form.description} onChange={(e) => set("description", e.target.value)} maxLength={4000} />
+          </Field>
+          <Field label="Description (EN)" optional>
+            <Textarea rows={4} value={form.descriptionEn} onChange={(e) => set("descriptionEn", e.target.value)} maxLength={4000} />
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="นิสัย" optional>

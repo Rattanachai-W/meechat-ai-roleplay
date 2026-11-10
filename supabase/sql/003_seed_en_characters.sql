@@ -1,0 +1,23 @@
+-- Optional EN seed characters for bilingual discover (run manually on shared DB)
+-- Requires an existing creator_profiles row; replace CREATOR_ID before running.
+
+-- Example (commented):
+-- INSERT INTO characters (
+--   id, creator_id, name, slug, tagline, description, tagline_en, description_en,
+--   primary_language, first_message, visibility, status, content_rating, published_at
+-- ) VALUES (
+--   gen_random_uuid(),
+--   'CREATOR_ID',
+--   'Elena Voss',
+--   'elena-voss-demo',
+--   'A sharp private investigator who never drops a case',
+--   'Elena works cold cases in a rainy coastal city. She is dry, observant, and stubbornly loyal once she trusts someone.',
+--   'A sharp private investigator who never drops a case',
+--   'Elena works cold cases in a rainy coastal city. She is dry, observant, and stubbornly loyal once she trusts someone.',
+--   'EN',
+--   'You found my office at midnight. Good. Sit down and tell me what they are hiding.',
+--   'PUBLIC',
+--   'PUBLISHED',
+--   'GENERAL',
+--   NOW()
+-- );

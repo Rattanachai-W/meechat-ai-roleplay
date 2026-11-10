@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { Heart, Lock, ScrollText } from "lucide-react";
 import type { QuestWithProgress, AffinitySummary } from "@/lib/quests/service";
 

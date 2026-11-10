@@ -46,10 +46,10 @@ export async function maybeExtractMemories(conversationId: string): Promise<void
         {
           role: "system",
           content:
-            "คุณสกัดความจำระยะยาวจากบทสนทนา roleplay ภาษาไทย ตอบเป็น JSON array เท่านั้น " +
-            'รูปแบบ: [{"type":"FACT|RELATIONSHIP|EVENT|PREFERENCE|PROMISE|SECRET|GOAL","content":"...","importance":1-5}] ' +
-            "สกัดเฉพาะสาระสำคัญที่ควรจำไปอนาคต (ชื่อเรียก ความสัมพันธ์ เหตุการณ์สำคัญ สิ่งที่ชอบ/เกลียด สัญญา) " +
-            "ถ้าไม่มีอะไรน่าจดจำ ตอบ [] เท่านั้น ห้ามอธิบายอื่น",
+            "Extract long-term memories from a roleplay conversation (Thai or English). Reply with a JSON array only. " +
+            'Format: [{"type":"FACT|RELATIONSHIP|EVENT|PREFERENCE|PROMISE|SECRET|GOAL","content":"...","importance":1-5}] ' +
+            "Keep content in the same language as the conversation. Extract only durable facts (names, relationships, key events, likes/dislikes, promises). " +
+            "If nothing memorable, reply [] only. No other text.",
         },
         { role: "user", content: transcript },
       ],

@@ -3,6 +3,7 @@ import { ApiError } from "@/lib/api/errors";
 import { QuestGoalType } from "@/generated/prisma/client";
 import { completeOnce, resolveCheapestJobModel } from "@/lib/ai/gateway";
 import { pointsToLevel } from "@/lib/quests/intimacy";
+import { dayKeyInTimezone } from "@/lib/time/day-key";
 
 /**
  * Quest service — ภารกิจประจำตัวละคร
@@ -151,15 +152,10 @@ export async function getQuestsWithProgress(
   }));
 }
 
-/** YYYY-MM-DD แบบ UTC — กุญแจนับ "วันที่แชท" ของ STREAK_DAYS */
-function utcDateOf(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
 /**
  * นับ progress จากการแชทสำเร็จ 1 ครั้ง (เรียกจาก pipeline post-jobs)
  * - MESSAGES: +1 ทุกข้อความ
- * - STREAK_DAYS: +1 ต่อวัน (UTC) เท่านั้น — กัน spam ข้อความเดียวจบภารกิจ
+ * - STREAK_DAYS: +1 ต่อวันตาม timezone ของ user — กัน spam ข้อความเดียวจบภารกิจ
  */
 export async function bumpChatQuestProgress(userId: string, characterId: string): Promise<void> {
   const quests = await prisma.characterQuest.findMany({
@@ -168,7 +164,12 @@ export async function bumpChatQuestProgress(userId: string, characterId: string)
       goalType: { in: [QuestGoalType.MESSAGES, QuestGoalType.STREAK_DAYS] },
     },
   });
-  const today = utcDateOf(new Date());
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { timezone: true },
+  });
+  const today = dayKeyInTimezone(user?.timezone);
+  const dayOf = (d: Date) => dayKeyInTimezone(user?.timezone, d);
 
   for (const quest of quests) {
     const row = await prisma.userQuestProgress.upsert({
@@ -184,8 +185,8 @@ export async function bumpChatQuestProgress(userId: string, characterId: string)
       nextProgress = row.progress + 1;
       shouldBump = true;
     } else {
-      // STREAK_DAYS — bump เฉพาะวันแรกของวันนั้น
-      const lastDay = row.lastBumpOn ? utcDateOf(row.lastBumpOn) : null;
+      // STREAK_DAYS — bump เฉพาะวันแรกของวันนั้น (user timezone)
+      const lastDay = row.lastBumpOn ? dayOf(row.lastBumpOn) : null;
       if (lastDay !== today) {
         nextProgress = row.progress + 1;
         shouldBump = true;

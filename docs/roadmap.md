@@ -260,3 +260,32 @@ authorize endpoint ตรวจสถานะ provider แล้ว (ยัง 
 
 Verification log: tsc clean · daily-settings 6/6 (default/ตั้ง 75 เคลมได้จริง/idempotent/
 fallback 3 กรณี) + drift + pricing 18/18 · smoke จริงบน dev: GET status ✓ ปุ่ม render ✓ POST +50 ✓
+
+## ✅ M15 — Locale foundation (TH/EN) (เสร็จแล้ว)
+
+- [x] `next-intl` + `src/app/[locale]/...` routing (`th`/`en`, default `th`)
+- [x] Message catalogs `messages/th.json` + `messages/en.json`
+- [x] User prefs: `preferredLocale`, `timezone` (+ currency for M18)
+- [x] Prompt builder / memory / intimacy bilingual via `replyLocale`
+- [x] API errors locale-aware (`resolveRequestLocale`)
+
+## ✅ M16 — Trust and compliance (เสร็จแล้ว)
+
+- [x] `/[locale]/privacy|terms|cookies` + cookie consent banner
+- [x] Age gate for MATURE + report API/UI + admin decide
+- [x] Account export (`/api/me/export`) + delete (`/api/me/delete`)
+- [x] Daily claim + quest streak use user timezone
+
+## ✅ M17 — Bilingual content and discover (เสร็จแล้ว)
+
+- [x] `Character.primaryLanguage` + optional EN discover fields
+- [x] Discover language chips (default matches UI locale)
+- [x] Character form language fields + EN seed stub SQL
+
+## ✅ M18 — Multi-currency payments and payout readiness (เสร็จแล้ว)
+
+- [x] Energy packages priced in THB + USD; checkout currency from prefs
+- [x] Stripe Checkout locale-aware success/cancel URLs
+- [x] Creator payout status + request KYC (`/api/creator/me/payout`)
+
+Migration: `prisma/migrations/20261110000000_global_thai_expansion` *(manual on shared DB)*

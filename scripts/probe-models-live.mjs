@@ -7,6 +7,7 @@ function envOf(key) {
   return m ? m[1].replace(/^["']|["']$/g, "").trim() : "";
 }
 const KEY = envOf("OPENROUTER_API_KEY");
+const BASE = (envOf("LLM_API_URL") || "https://openrouter.ai/api/v1").replace(/\/+$/, "");
 
 const MODELS = [
   "google/gemini-2.0-flash-001",
@@ -20,7 +21,7 @@ const MODELS = [
 
 for (const model of MODELS) {
   try {
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const res = await fetch(`${BASE}/chat/completions`, {
       method: "POST",
       headers: { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { Heart, MessageCircle, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -7,6 +7,8 @@ export interface CharacterCardProps {
   slug: string;
   name: string;
   tagline: string;
+  taglineEn?: string | null;
+  primaryLanguage?: string;
   avatarUrl?: string | null;
   contentRating?: string;
   chatCount?: number;

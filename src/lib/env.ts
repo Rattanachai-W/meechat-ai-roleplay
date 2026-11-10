@@ -32,7 +32,8 @@ const serverEnvSchema = z.object({
   DATABASE_URL: z.string().min(1).optional(),
   // Server-side only — ห้ามเรียกใช้ใน client code
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
-  // AI Provider
+  // AI Provider (OpenAI-compatible; base URL ไม่รวม /chat/completions)
+  LLM_API_URL: z.string().url().optional(),
   OPENROUTER_API_KEY: z.string().min(1).optional(),
   // Upstash Redis (rate limit / cache)
   UPSTASH_REDIS_REST_URL: z.string().url().optional(),

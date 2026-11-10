@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import { ArrowLeft, ChevronLeft, ChevronRight, Heart, RefreshCw, Send, Square } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";

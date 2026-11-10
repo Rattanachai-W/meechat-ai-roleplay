@@ -1,0 +1,114 @@
+{
+  "Metadata": {
+    "title": "MeeChat — AI Roleplay ภาษาไทย",
+    "titleTemplate": "%s | MeeChat",
+    "description": "แพลตฟอร์ม AI Roleplay Chatbot ที่ออกแบบมาเพื่อภาษาไทยโดยเฉพาะ คุยกับตัวละคร AI สร้างตัวละครและ Persona ของคุณเอง"
+  },
+  "Nav": {
+    "discover": "ค้นพบ",
+    "library": "คลัง",
+    "persona": "ตัวตน",
+    "creator": "ครีเอเตอร์",
+    "settings": "ตั้งค่า",
+    "main": "หลัก",
+    "mainMobile": "หลัก (มือถือ)",
+    "login": "เข้าสู่ระบบ",
+    "signOut": "ออกจากระบบ",
+    "createCharacter": "สร้างตัวละคร",
+    "myEnergy": "พลังงานของฉัน",
+    "energyTitle": "พลังงานของคุณ"
+  },
+  "Home": {
+    "eyebrow": "AI Roleplay ภาษาไทยสำหรับสายสืบสวน แฟนตาซี และกำลังภายใน",
+    "headline": "แชทกับตัวละคร AI ภาษาไทย ที่<accent>พาคุณอินไปกับทุกเรื่องราว</accent>",
+    "sub": "ที่คุยภาษาไทยเป็นธรรมชาติ และจำเรื่องราวของคุณได้ต่อเนื่อง",
+    "ctaStart": "เริ่มคุยเลย",
+    "ctaLogin": "เข้าสู่ระบบ",
+    "footer": "MeeChat — AI Roleplay ที่ออกแบบมาเพื่อภาษาไทยโดยเฉพาะ"
+  },
+  "Settings": {
+    "title": "ตั้งค่า",
+    "notLoggedIn": "ยังไม่ได้เข้าสู่ระบบ —",
+    "loginLink": "เข้าสู่ระบบ",
+    "account": "บัญชีของคุณ",
+    "email": "อีเมล:",
+    "memberSince": "สมาชิกตั้งแต่:",
+    "energyLink": "พลังงาน & ประวัติใช้งาน",
+    "personaLink": "Persona ของฉัน",
+    "security": "ความปลอดภัย & สิทธิ์",
+    "securityBullet1": "บทสนทนา ความจำ และ persona เห็นได้เฉพาะคุณ (มี RLS ซ้อนอีกชั้น)",
+    "securityBullet2": "ตัวละคร PRIVATE จะไม่ปรากฏในหน้าค้นพบแก่ผู้อื่น",
+    "securityBullet3": "สามารถรายงานเนื้อหาไม่เหมาะสมได้จากหน้าตัวละครหรือแชท",
+    "language": "ภาษา & ภูมิภาค",
+    "locale": "ภาษาอินเทอร์เฟซ",
+    "timezone": "เขตเวลา",
+    "currency": "สกุลเงินร้านค้า",
+    "savePrefs": "บันทึกการตั้งค่า",
+    "prefsSaved": "บันทึกการตั้งค่าแล้ว",
+    "deleteAccount": "ลบบัญชี",
+    "deleteAccountHelp": "ลบข้อมูลโปรไฟล์ บทสนทนา และกระเป๋าพลังงานอย่างถาวร ไม่สามารถกู้คืนได้",
+    "deleteConfirm": "พิมพ์ DELETE เพื่อยืนยัน",
+    "exportData": "ส่งออกข้อมูล",
+    "exportHelp": "ดาวน์โหลดโปรไฟล์ persona และรายการบทสนทนาเป็น JSON"
+  },
+  "Errors": {
+    "UNAUTHORIZED": "กรุณาเข้าสู่ระบบก่อนใช้งาน",
+    "FORBIDDEN": "คุณไม่มีสิทธิ์ทำรายการนี้",
+    "NOT_FOUND": "ไม่พบข้อมูลที่ต้องการ",
+    "VALIDATION_ERROR": "ข้อมูลที่ส่งมาไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง",
+    "INSUFFICIENT_ENERGY": "พลังงานไม่เพียงพอ กดรับพลังงานรายวันที่หน้า Wallet ก่อนใช้งาน",
+    "RATE_LIMITED": "พยายามบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่",
+    "MODEL_UNAVAILABLE": "โมเดล AI ไม่พร้อมใช้งานชั่วคราว ลองเปลี่ยนโมเดลหรือลองอีกครั้ง",
+    "CONTENT_REJECTED": "โมเดลปฏิเสธเนื้อหาส่วนนี้ กรุณาลองเขียนใหม่",
+    "LLM_TIMEOUT": "AI ใช้เวลาตอบนานเกินไป กรุณาลองอีกครั้ง",
+    "PAYMENTS_DISABLED": "ระบบชำระเงินยังไม่เปิดใช้งาน รับพลังงานรายวันได้ที่หน้า Wallet",
+    "PAYMENT_FAILED": "การชำระเงินยังไม่สำเร็จหรือถูกยกเลิก — ไม่มีการตัดเงิน",
+    "INTERNAL_ERROR": "เกิดข้อผิดพลาดภายในระบบ กรุณาลองอีกครั้ง",
+    "validationDetail": "ข้อมูลไม่ถูกต้อง ({detail})"
+  },
+  "Discover": {
+    "title": "ค้นพบ",
+    "searchPlaceholder": "ค้นหาตัวละคร แท็ก หรือครีเอเตอร์",
+    "languageFilter": "ภาษา",
+    "languageAll": "ทุกภาษา",
+    "languageTh": "ไทย",
+    "languageEn": "อังกฤษ",
+    "languageBilingual": "สองภาษา"
+  },
+  "Wallet": {
+    "title": "กระเป๋าพลังงาน",
+    "buy": "เติมพลังงาน",
+    "priceThb": "฿{price}",
+    "priceUsd": "${price}",
+    "payoutReady": "พร้อมถอน",
+    "payoutPending": "ถอนได้เมื่อเปิด payout"
+  },
+  "Legal": {
+    "privacyTitle": "นโยบายความเป็นส่วนตัว",
+    "termsTitle": "ข้อกำหนดการใช้งาน",
+    "cookiesTitle": "นโยบายคุกกี้",
+    "acceptNecessary": "ยอมรับที่จำเป็น",
+    "acceptAll": "ยอมรับทั้งหมด",
+    "cookieBanner": "เราใช้คุกกี้ที่จำเป็นต่อการเข้าสู่ระบบ และ analytics แบบไม่ระบุตัวตนถ้าคุณยินยอม"
+  },
+  "AgeGate": {
+    "title": "เนื้อหาสำหรับผู้ใหญ่",
+    "body": "ตัวละครนี้มีเรตติ้ง MATURE คุณยืนยันว่าอายุ 18 ปีขึ้นไปหรือไม่?",
+    "confirm": "ฉันอายุ 18+",
+    "cancel": "ย้อนกลับ"
+  },
+  "Report": {
+    "title": "รายงาน",
+    "submit": "ส่งรายงาน",
+    "success": "รับรายงานแล้ว ขอบคุณที่ช่วยดูแลชุมชน",
+    "reason": "เหตุผล",
+    "details": "รายละเอียดเพิ่มเติม (ไม่บังคับ)"
+  },
+  "Creator": {
+    "payoutTitle": "สถานะ payout",
+    "payoutNone": "ยังไม่ตั้งค่า",
+    "payoutPending": "รอตรวจสอบ KYC",
+    "payoutReady": "พร้อมถอนเมื่อระบบเปิด",
+    "payoutHelp": "รายได้ยังเป็นเหรียญในระบบ จนกว่าจะเปิดถอนเงินจริงหลัง KYC"
+  }
+}

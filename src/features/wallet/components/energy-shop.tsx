@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { Coins, Loader2, FlaskConical, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,9 @@ interface Pkg {
   id: string;
   coins: number;
   priceThb: number;
+  priceUsd?: number;
   label: string;
+  labelEn?: string;
 }
 
 type ShopMode = "off" | "mock" | "stripe";
@@ -26,6 +28,7 @@ export function EnergyShop() {
   const router = useRouter();
   const [packages, setPackages] = useState<Pkg[]>([]);
   const [mode, setMode] = useState<ShopMode>("off");
+  const [currency, setCurrency] = useState<"THB" | "USD">("THB");
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState<string | null>(null);
   // StrictMode dev mount 2 ครั้ง — กันยิง confirm ซ้ำ (server กันซ้ำอยู่แล้วแต่ toast จะซ้อน)
@@ -84,7 +87,7 @@ export function EnergyShop() {
       const res = await fetch("/api/energy/purchase", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packageId: pkg.id }),
+        body: JSON.stringify({ packageId: pkg.id, currency }),
       });
       const data = (await res.json()) as
         | { purchased?: boolean; coins?: number; checkoutUrl?: string }
@@ -129,25 +132,47 @@ export function EnergyShop() {
             ระบบชำระเงินยังไม่เปิดใช้งาน — รับพลังงานรายวันฟรีได้จากปุ่มด้านบน
           </p>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-3">
-            {packages.map((pkg) => (
-              <button
-                key={pkg.id}
-                onClick={() => buy(pkg)}
-                disabled={buying !== null}
-                className="rounded-xl border border-border p-4 text-left transition-colors hover:border-amber-500/50 hover:bg-amber-500/5 disabled:opacity-50"
-              >
-                <p className="font-semibold">{pkg.label}</p>
-                <p className="mt-1 flex items-center justify-between text-sm text-muted-foreground">
-                  ฿{pkg.priceThb.toLocaleString("th-TH")}
-                  {buying === pkg.id ? (
-                    <Loader2 className="size-4 animate-spin" aria-hidden />
-                  ) : (
-                    <span className="font-medium text-amber-500">ซื้อ</span>
-                  )}
-                </p>
-              </button>
-            ))}
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Currency">
+              {(["THB", "USD"] as const).map((code) => (
+                <button
+                  key={code}
+                  type="button"
+                  role="radio"
+                  aria-checked={currency === code}
+                  onClick={() => setCurrency(code)}
+                  className={`rounded-full border px-3 py-1 text-xs ${
+                    currency === code
+                      ? "border-amber-500 bg-amber-500/10 text-amber-500"
+                      : "border-border text-muted-foreground"
+                  }`}
+                >
+                  {code}
+                </button>
+              ))}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {packages.map((pkg) => (
+                <button
+                  key={pkg.id}
+                  onClick={() => buy(pkg)}
+                  disabled={buying !== null}
+                  className="rounded-xl border border-border p-4 text-left transition-colors hover:border-amber-500/50 hover:bg-amber-500/5 disabled:opacity-50"
+                >
+                  <p className="font-semibold">{pkg.label}</p>
+                  <p className="mt-1 flex items-center justify-between text-sm text-muted-foreground">
+                    {currency === "USD"
+                      ? `$${(pkg.priceUsd ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}`
+                      : `฿${pkg.priceThb.toLocaleString("th-TH")}`}
+                    {buying === pkg.id ? (
+                      <Loader2 className="size-4 animate-spin" aria-hidden />
+                    ) : (
+                      <span className="font-medium text-amber-500">Buy</span>
+                    )}
+                  </p>
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </CardContent>

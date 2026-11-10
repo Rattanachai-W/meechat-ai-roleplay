@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";

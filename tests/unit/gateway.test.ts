@@ -30,6 +30,7 @@ describe("LLM gateway", () => {
   });
 
   it("stream: parse delta + usage ถูกต้อง, ข้าม [DONE]", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "sk-test");
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
@@ -54,6 +55,18 @@ describe("LLM gateway", () => {
     expect(body.stream).toBe(true);
     expect(body.usage).toEqual({ include: true });
     expect(body.model).toBe("m");
+    expect(call[0]).toBe("https://openrouter.ai/api/v1/chat/completions");
+  });
+
+  it("stream: ใช้ LLM_API_URL เป็น base (ตัด trailing slash)", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "sk-test");
+    vi.stubEnv("LLM_API_URL", "https://api.tokenme.limited/api/v1/");
+    const fetchMock = vi.fn(async () => sseResponse([CHUNK("ok")]));
+    vi.stubGlobal("fetch", fetchMock);
+    await streamChatCompletion({ model: "m", messages: [] }).next();
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://api.tokenme.limited/api/v1/chat/completions"
+    );
   });
 
   it("stream: payload error กลาง stream → MODEL_UNAVAILABLE", async () => {

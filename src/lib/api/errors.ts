@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { apiErrorMessage, validationDetailMessage } from "@/lib/i18n/error-messages";
+import { resolveRequestLocale } from "@/lib/i18n/locale";
+import type { AppLocale } from "@/i18n/routing";
 
 /**
  * Error taxonomy กลางของทุก API — code เดียวกับ docs/api-routes.md
- * message เป็นภาษาไทยอ่านง่าย เพราะแสดงต่อ user ได้ทันที
+ * message เป็นภาษาตาม locale ของ request (cookie / Accept-Language)
  */
 export type ApiErrorCode =
   | "UNAUTHORIZED"
@@ -35,27 +38,12 @@ const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
   INTERNAL_ERROR: 500,
 };
 
-const THAI_MESSAGE_BY_CODE: Record<ApiErrorCode, string> = {
-  UNAUTHORIZED: "กรุณาเข้าสู่ระบบก่อนใช้งาน",
-  FORBIDDEN: "คุณไม่มีสิทธิ์ทำรายการนี้",
-  NOT_FOUND: "ไม่พบข้อมูลที่ต้องการ",
-  VALIDATION_ERROR: "ข้อมูลที่ส่งมาไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง",
-  INSUFFICIENT_ENERGY: "พลังงานไม่เพียงพอ กดรับพลังงานรายวันที่หน้า Wallet ก่อนใช้งาน",
-  RATE_LIMITED: "พยายามบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่",
-  MODEL_UNAVAILABLE: "โมเดล AI ไม่พร้อมใช้งานชั่วคราว ลองเปลี่ยนโมเดลหรือลองอีกครั้ง",
-  CONTENT_REJECTED: "โมเดลปฏิเสธเนื้อหาส่วนนี้ กรุณาลองเขียนใหม่",
-  LLM_TIMEOUT: "AI ใช้เวลาตอบนานเกินไป กรุณาลองอีกครั้ง",
-  PAYMENTS_DISABLED: "ระบบชำระเงินยังไม่เปิดใช้งาน รับพลังงานรายวันได้ที่หน้า Wallet",
-  PAYMENT_FAILED: "การชำระเงินยังไม่สำเร็จหรือถูกยกเลิก — ไม่มีการตัดเงิน",
-  INTERNAL_ERROR: "เกิดข้อผิดพลาดภายในระบบ กรุณาลองอีกครั้ง",
-};
-
 export class ApiError extends Error {
   readonly code: ApiErrorCode;
   readonly status: number;
 
   constructor(code: ApiErrorCode, message?: string) {
-    super(message ?? THAI_MESSAGE_BY_CODE[code]);
+    super(message ?? apiErrorMessage(code, "th"));
     this.code = code;
     this.status = STATUS_BY_CODE[code];
     this.name = "ApiError";
@@ -68,20 +56,39 @@ export function errorBody(code: ApiErrorCode, message: string) {
 }
 
 /** แปลง unknown → Response; ใช้ใน catch block ของทุก route handler */
-export function jsonErrorResponse(error: unknown): NextResponse {
+export function jsonErrorResponse(error: unknown, locale: AppLocale = "th"): NextResponse {
   if (error instanceof ApiError) {
-    return NextResponse.json(errorBody(error.code, error.message), { status: error.status });
+    const message =
+      error.message === apiErrorMessage(error.code, "th") ||
+      error.message === apiErrorMessage(error.code, "en")
+        ? apiErrorMessage(error.code, locale)
+        : error.message;
+    return NextResponse.json(errorBody(error.code, message), { status: error.status });
   }
   if (error instanceof ZodError) {
     const first = error.issues[0];
     const detail = first ? `${first.path.join(".")}: ${first.message}` : undefined;
     return NextResponse.json(
-      errorBody("VALIDATION_ERROR", detail ? `ข้อมูลไม่ถูกต้อง (${detail})` : THAI_MESSAGE_BY_CODE.VALIDATION_ERROR),
+      errorBody(
+        "VALIDATION_ERROR",
+        detail
+          ? validationDetailMessage(detail, locale)
+          : apiErrorMessage("VALIDATION_ERROR", locale)
+      ),
       { status: 400 }
     );
   }
   console.error("[api] unhandled error:", error);
-  return NextResponse.json(errorBody("INTERNAL_ERROR", THAI_MESSAGE_BY_CODE.INTERNAL_ERROR), { status: 500 });
+  return NextResponse.json(
+    errorBody("INTERNAL_ERROR", apiErrorMessage("INTERNAL_ERROR", locale)),
+    { status: 500 }
+  );
+}
+
+/** Async helper: resolve locale then map error */
+export async function jsonErrorResponseLocalized(error: unknown): Promise<NextResponse> {
+  const locale = await resolveRequestLocale();
+  return jsonErrorResponse(error, locale);
 }
 
 /** throw UNAUTHORIZED ถ้ายังไม่ login; คืน userId */

@@ -18,7 +18,8 @@ import { retrieveMemories } from "@/lib/memory/retrieval";
 import { maybeExtractMemories } from "@/lib/memory/extraction";
 import { maybeUpdateSummary } from "@/lib/memory/summary";
 import { bumpChatQuestProgress, judgeAiTopicQuests, getAffinitySummary } from "@/lib/quests/service";
-import { pointsToLevel } from "@/lib/quests/intimacy";
+import { intimacyForPrompt, pointsToLevel } from "@/lib/quests/intimacy";
+import type { AppLocale } from "@/i18n/routing";
 
 /**
  * Chat pipeline — เส้นทางเดียวสำหรับ send message และ regenerate variant
@@ -153,7 +154,13 @@ export async function prepareChat(opts: {
     retrieveMemories(conversation.id),
     getAffinitySummary(conversation.userId, conversation.characterId),
   ]);
+  const userPrefs = await prisma.user.findUnique({
+    where: { id: opts.userId },
+    select: { preferredLocale: true },
+  });
+  const replyLocale: AppLocale = userPrefs?.preferredLocale === "en" ? "en" : "th";
   const intimacyLv = pointsToLevel(affinity.points);
+  const intimacyPrompt = intimacyForPrompt(intimacyLv, replyLocale);
   const systemPrompt = buildSystemPrompt({
     character: {
       name: conversation.character.name,
@@ -166,7 +173,8 @@ export async function prepareChat(opts: {
     persona: conversation.persona,
     memories,
     summary: conversation.summary?.summary,
-    intimacy: { level: intimacyLv.level, label: intimacyLv.label, directive: intimacyLv.directive },
+    intimacy: intimacyPrompt,
+    replyLocale,
   });
   const messagesForLlm = buildChatMessages({
     systemPrompt,

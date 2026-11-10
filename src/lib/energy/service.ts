@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { ApiError } from "@/lib/api/errors";
 import { EnergyTransactionType, Prisma } from "@/generated/prisma/client";
 import { DAILY_REWARD_AMOUNT } from "@/lib/energy/pricing";
+import { dayKeyInTimezone } from "@/lib/time/day-key";
 
 /**
  * Energy ledger service — reserve → settle/refund pattern
@@ -200,9 +201,13 @@ export async function refundEnergy(opts: {
   });
 }
 
-/** วันที่แบบ timezone ไทย (YYYY-MM-DD) ใช้เป็นกุญแจกันเคลมซ้ำ */
-function bangkokToday(): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date());
+/** วันที่ตาม timezone ของ user (fallback Bangkok) — กุญแจกันเคลมซ้ำ */
+async function userDayKey(userId: string): Promise<string> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { timezone: true },
+  });
+  return dayKeyInTimezone(user?.timezone);
 }
 
 /**
@@ -220,7 +225,7 @@ export async function getDailyRewardAmount(): Promise<number> {
 
 /** เคลมพลังงานรายวันของ user นี้ไปแล้วหรือยัง (ดูจาก ledger idempotency key) */
 export async function hasClaimedDaily(userId: string): Promise<boolean> {
-  const today = bangkokToday();
+  const today = await userDayKey(userId);
   const row = await prisma.energyTransaction.findFirst({
     where: { userId, type: EnergyTransactionType.DAILY_REWARD, idempotencyKey: `daily:${userId}:${today}` },
     select: { id: true },
@@ -243,7 +248,7 @@ export async function claimDailyReward(userId: string): Promise<{
   amount: number;
   wallet: WalletSummary;
 }> {
-  const today = bangkokToday();
+  const today = await userDayKey(userId);
   const amount = await getDailyRewardAmount();
   const idempotencyKey = `daily:${userId}:${today}`;
   try {

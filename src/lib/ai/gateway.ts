@@ -38,8 +38,15 @@ export class LlmError extends Error {
   }
 }
 
-const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+const DEFAULT_LLM_API_URL = "https://openrouter.ai/api/v1";
 const STREAM_TIMEOUT_MS = 90_000;
+
+/** Base URL ของ OpenAI-compatible API (ตัด trailing slash) */
+function resolveLlmApiUrl(): string {
+  const raw = process.env.LLM_API_URL?.trim();
+  const base = raw && raw.length > 0 ? raw : DEFAULT_LLM_API_URL;
+  return base.replace(/\/+$/, "");
+}
 
 interface OpenRouterStreamChunk {
   choices?: { delta?: { content?: string | null }; finish_reason?: string | null }[];
@@ -62,7 +69,7 @@ export async function* streamChatCompletion(req: StreamRequest): AsyncGenerator<
 
   let response: Response;
   try {
-    response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+    response = await fetch(`${resolveLlmApiUrl()}/chat/completions`, {
       method: "POST",
       signal,
       headers: {
@@ -222,7 +229,7 @@ export async function completeOnce(req: {
   const timeout = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
   let response: Response;
   try {
-    response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+    response = await fetch(`${resolveLlmApiUrl()}/chat/completions`, {
       method: "POST",
       signal: controller.signal,
       headers: {

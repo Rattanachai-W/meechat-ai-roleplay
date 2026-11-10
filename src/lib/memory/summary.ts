@@ -54,9 +54,9 @@ export async function maybeUpdateSummary(conversationId: string): Promise<void> 
         {
           role: "system",
           content:
-            "สรุปบทสนทนา roleplay ภาษาไทยให้กระชับ (ไม่เกิน 250 คำ) เก็บสาระสำคัญ: " +
-            "ความสัมพันธ์ของตัวละครกับผู้ใช้ เหตุการณ์ที่เกิดขึ้น สถานที่ สัญญา และอารมณ์โดยรวม " +
-            "เขียนต่อเนื่องจากบทสรุปเดิมถ้ามี ตอบข้อความสรุปอย่างเดียว",
+            "Summarize this roleplay conversation concisely (max 250 words) in the same language as the dialogue. Keep: " +
+            "relationship between character and user, key events, places, promises, and overall mood. " +
+            "Continue from the previous summary when present. Reply with the summary text only.",
         },
         {
           role: "user",

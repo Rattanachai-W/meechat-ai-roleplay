@@ -43,6 +43,42 @@ enum ContentRating {
   MATURE
 }
 
+enum AppLocaleCode {
+  th
+  en
+}
+
+enum PreferredCurrency {
+  THB
+  USD
+}
+
+enum CharacterLanguage {
+  TH
+  EN
+  BILINGUAL
+}
+
+enum ReportTargetType {
+  CHARACTER
+  MESSAGE
+  CREATOR
+}
+
+enum ReportStatus {
+  OPEN
+  REVIEWING
+  RESOLVED
+  DISMISSED
+}
+
+enum PayoutStatus {
+  NONE
+  PENDING_KYC
+  READY
+  SUSPENDED
+}
+
 enum MessageRole {
   USER
   ASSISTANT
@@ -94,13 +130,17 @@ enum AiUsageStatus {
 // ─────────────────────── Users & Personas ───────────────────────
 
 model User {
-  id          String   @id @db.Uuid
-  email       String   @unique
-  displayName String?  @map("display_name")
-  avatarUrl   String?  @map("avatar_url")
-  role        UserRole @default(USER)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id                 String            @id @db.Uuid
+  email              String            @unique
+  displayName        String?           @map("display_name")
+  avatarUrl          String?           @map("avatar_url")
+  role               UserRole          @default(USER)
+  preferredLocale    AppLocaleCode     @default(th) @map("preferred_locale")
+  timezone           String            @default("Asia/Bangkok")
+  preferredCurrency  PreferredCurrency @default(THB) @map("preferred_currency")
+  matureConfirmedAt  DateTime?         @map("mature_confirmed_at")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
 
   personas      UserPersona[]
   creator       CreatorProfile?
@@ -114,6 +154,7 @@ model User {
   memories      Memory[]
   questProgress UserQuestProgress[]
   affinities    CharacterAffinity[]
+  reports       Report[]            @relation("ReporterReports")
 
   @@map("users")
 }
@@ -142,15 +183,18 @@ model UserPersona {
 // ─────────────────────── Creators & Characters ───────────────────────
 
 model CreatorProfile {
-  id          String   @id @default(uuid()) @db.Uuid
-  userId      String   @unique @map("user_id") @db.Uuid
-  username    String   @unique
-  bio         String?
-  avatarUrl   String?  @map("avatar_url")
+  id              String       @id @default(uuid()) @db.Uuid
+  userId          String       @unique @map("user_id") @db.Uuid
+  username        String       @unique
+  bio             String?
+  avatarUrl       String?      @map("avatar_url")
   // Denormalized: source of truth = creator_earnings ledger (อัปเดตทรานแซกชันเดียวกัน)
-  totalEarned Int      @default(0) @map("total_earned")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  totalEarned     Int          @default(0) @map("total_earned")
+  payoutStatus    PayoutStatus @default(NONE) @map("payout_status")
+  payoutReadyAt   DateTime?    @map("payout_ready_at")
+  kycNote         String?      @map("kyc_note")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
 
   user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   characters Character[]
@@ -160,34 +204,37 @@ model CreatorProfile {
 }
 
 model Character {
-  id              String        @id @default(uuid()) @db.Uuid
-  creatorId       String        @map("creator_id") @db.Uuid
+  id              String            @id @default(uuid()) @db.Uuid
+  creatorId       String            @map("creator_id") @db.Uuid
   name            String
-  slug            String        @unique
+  slug            String            @unique
   tagline         String
   description     String
+  taglineEn       String?           @map("tagline_en")
+  descriptionEn   String?           @map("description_en")
+  primaryLanguage CharacterLanguage @default(TH) @map("primary_language")
   personality     String?
   scenario        String?
-  speakingStyle   String?       @map("speaking_style")
-  firstMessage    String        @map("first_message")
-  avatarUrl       String?       @map("avatar_url")
-  visibility      Visibility    @default(PUBLIC)
-  status          CharacterStatus @default(DRAFT)
+  speakingStyle   String?           @map("speaking_style")
+  firstMessage    String            @map("first_message")
+  avatarUrl       String?           @map("avatar_url")
+  visibility      Visibility        @default(PUBLIC)
+  status          CharacterStatus   @default(DRAFT)
   // เหตุผลจาก admin ตอน reject (แสดงให้ครีเอเตอร์ใน studio)
-  reviewNote      String?       @map("review_note")
-  publishedAt     DateTime?     @map("published_at")
-  contentRating   ContentRating @default(GENERAL) @map("content_rating")
+  reviewNote      String?           @map("review_note")
+  publishedAt     DateTime?         @map("published_at")
+  contentRating   ContentRating     @default(GENERAL) @map("content_rating")
   // Denormalized counters, updated transactionally with the events that change them
-  chatCount       Int           @default(0) @map("chat_count")
-  likeCount       Int           @default(0) @map("like_count")
-  favoriteCount   Int           @default(0) @map("favorite_count")
-  defaultModelKey String?       @map("default_model_key")
+  chatCount       Int               @default(0) @map("chat_count")
+  likeCount       Int               @default(0) @map("like_count")
+  favoriteCount   Int               @default(0) @map("favorite_count")
+  defaultModelKey String?           @map("default_model_key")
   // Growth-weighted trending score, recomputed periodically (cron) —
   // ไม่ใช่ lifetime count; 0 = ไม่มีข้อมูล, sort=trending ใช้ค่านี้
-  trendScore      Float         @default(0) @map("trend_score")
-  trendUpdatedAt  DateTime?     @map("trend_updated_at")
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
+  trendScore      Float             @default(0) @map("trend_score")
+  trendUpdatedAt  DateTime?         @map("trend_updated_at")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
 
   creator       CreatorProfile     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   examples      CharacterExample[]
@@ -466,6 +513,27 @@ model CreatorFollow {
   @@id([userId, creatorId])
   @@index([creatorId])
   @@map("creator_follows")
+}
+
+model Report {
+  id          String           @id @default(uuid()) @db.Uuid
+  reporterId  String           @map("reporter_id") @db.Uuid
+  targetType  ReportTargetType @map("target_type")
+  targetId    String           @map("target_id") @db.Uuid
+  reason      String
+  details     String?
+  status      ReportStatus     @default(OPEN)
+  adminNote   String?          @map("admin_note")
+  resolvedAt  DateTime?        @map("resolved_at")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  reporter User @relation("ReporterReports", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([targetType, targetId])
+  @@index([reporterId, createdAt])
+  @@map("reports")
 }
 
 // ─────────────────────── Energy Ledger ───────────────────────

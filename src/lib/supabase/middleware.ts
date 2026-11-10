@@ -4,10 +4,17 @@ import { isSupabaseConfigured } from "@/lib/env";
 
 /**
  * Refresh Supabase session cookies ทุก request
- * Route protection (redirect ถ้ายังไม่ login) จะเพิ่มทีหลังใน milestone ถัดไป
+ * สามารถผูกกับ response จาก next-intl ได้
  */
-export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request });
+export async function updateSession(
+  request: NextRequest,
+  baseResponse?: NextResponse
+) {
+  let response =
+    baseResponse ??
+    NextResponse.next({
+      request,
+    });
 
   if (!isSupabaseConfigured()) return response;
 
@@ -21,7 +28,9 @@ export async function updateSession(request: NextRequest) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
+        if (!baseResponse) {
+          response = NextResponse.next({ request });
+        }
         cookiesToSet.forEach(({ name, value, options }) =>
           response.cookies.set(name, value, options)
         );

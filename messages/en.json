@@ -1,0 +1,114 @@
+{
+  "Metadata": {
+    "title": "MeeChat — AI Roleplay",
+    "titleTemplate": "%s | MeeChat",
+    "description": "AI roleplay chat built for Thai and global players. Talk with characters, create personas, and publish your own cast."
+  },
+  "Nav": {
+    "discover": "Discover",
+    "library": "Library",
+    "persona": "Persona",
+    "creator": "Creator",
+    "settings": "Settings",
+    "main": "Main",
+    "mainMobile": "Main (mobile)",
+    "login": "Sign in",
+    "signOut": "Sign out",
+    "createCharacter": "Create character",
+    "myEnergy": "My energy",
+    "energyTitle": "Your energy"
+  },
+  "Home": {
+    "eyebrow": "AI roleplay for mystery, fantasy, and wuxia",
+    "headline": "Chat with AI characters that <accent>pull you into every story</accent>",
+    "sub": "Natural Thai and English conversation with memory that stays with you",
+    "ctaStart": "Start chatting",
+    "ctaLogin": "Sign in",
+    "footer": "MeeChat — AI roleplay for Thai and global audiences"
+  },
+  "Settings": {
+    "title": "Settings",
+    "notLoggedIn": "You are not signed in —",
+    "loginLink": "Sign in",
+    "account": "Your account",
+    "email": "Email:",
+    "memberSince": "Member since:",
+    "energyLink": "Energy & usage history",
+    "personaLink": "My personas",
+    "security": "Security & rights",
+    "securityBullet1": "Chats, memories, and personas are visible only to you (plus RLS)",
+    "securityBullet2": "PRIVATE characters stay hidden from Discover for others",
+    "securityBullet3": "You can report inappropriate content from a character or chat page",
+    "language": "Language & region",
+    "locale": "Interface language",
+    "timezone": "Timezone",
+    "currency": "Shop currency",
+    "savePrefs": "Save preferences",
+    "prefsSaved": "Preferences saved",
+    "deleteAccount": "Delete account",
+    "deleteAccountHelp": "Permanently deletes your profile, chats, and energy wallet. This cannot be undone.",
+    "deleteConfirm": "Type DELETE to confirm",
+    "exportData": "Export data",
+    "exportHelp": "Download profile, personas, and conversation list as JSON"
+  },
+  "Errors": {
+    "UNAUTHORIZED": "Please sign in to continue",
+    "FORBIDDEN": "You do not have permission for this action",
+    "NOT_FOUND": "The requested resource was not found",
+    "VALIDATION_ERROR": "Invalid input. Please check and try again",
+    "INSUFFICIENT_ENERGY": "Not enough energy. Claim your daily reward on the Wallet page first",
+    "RATE_LIMITED": "Too many requests. Please wait a moment and try again",
+    "MODEL_UNAVAILABLE": "The AI model is temporarily unavailable. Try another model or retry",
+    "CONTENT_REJECTED": "The model rejected this content. Please rephrase",
+    "LLM_TIMEOUT": "The AI took too long to reply. Please try again",
+    "PAYMENTS_DISABLED": "Payments are not enabled yet. Claim daily energy on the Wallet page",
+    "PAYMENT_FAILED": "Payment was not completed or was cancelled — you were not charged",
+    "INTERNAL_ERROR": "Something went wrong. Please try again",
+    "validationDetail": "Invalid input ({detail})"
+  },
+  "Discover": {
+    "title": "Discover",
+    "searchPlaceholder": "Search characters, tags, or creators",
+    "languageFilter": "Language",
+    "languageAll": "All languages",
+    "languageTh": "Thai",
+    "languageEn": "English",
+    "languageBilingual": "Bilingual"
+  },
+  "Wallet": {
+    "title": "Energy wallet",
+    "buy": "Buy energy",
+    "priceThb": "฿{price}",
+    "priceUsd": "${price}",
+    "payoutReady": "Payout ready",
+    "payoutPending": "Payout opens after setup"
+  },
+  "Legal": {
+    "privacyTitle": "Privacy Policy",
+    "termsTitle": "Terms of Use",
+    "cookiesTitle": "Cookie Policy",
+    "acceptNecessary": "Necessary only",
+    "acceptAll": "Accept all",
+    "cookieBanner": "We use cookies required for sign-in, plus anonymous analytics if you consent"
+  },
+  "AgeGate": {
+    "title": "Mature content",
+    "body": "This character is rated MATURE. Do you confirm you are 18 or older?",
+    "confirm": "I am 18+",
+    "cancel": "Go back"
+  },
+  "Report": {
+    "title": "Report",
+    "submit": "Submit report",
+    "success": "Report received. Thanks for helping keep the community safe",
+    "reason": "Reason",
+    "details": "Additional details (optional)"
+  },
+  "Creator": {
+    "payoutTitle": "Payout status",
+    "payoutNone": "Not set up",
+    "payoutPending": "KYC under review",
+    "payoutReady": "Ready when withdrawals open",
+    "payoutHelp": "Earnings stay as in-app coins until cash payouts open after KYC"
+  }
+}

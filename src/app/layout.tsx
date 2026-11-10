@@ -14,7 +14,6 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// ฟอนต์ไทยหลักของแพลตฟอร์ม — Thai-first typography
 const notoSansThai = Noto_Sans_Thai({
   variable: "--font-noto-thai",
   subsets: ["thai", "latin"],
@@ -22,18 +21,16 @@ const notoSansThai = Noto_Sans_Thai({
 
 export const metadata: Metadata = {
   title: {
-    default: "MeeChat — AI Roleplay ภาษาไทย",
+    default: "MeeChat — AI Roleplay",
     template: "%s | MeeChat",
   },
   description:
-    "แพลตฟอร์ม AI Roleplay Chatbot ที่ออกแบบมาเพื่อภาษาไทยโดยเฉพาะ คุยกับตัวละคร AI สร้างตัวละครและ Persona ของคุณเอง",
+    "AI roleplay chat for Thai and global players. Talk with characters, create personas, and publish your own cast.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
-      lang="th"
-      // Dark-first UX; theme switcher จะมาแทน class ตรงนี้ในภายหลัง
       className={`${geistSans.variable} ${geistMono.variable} ${notoSansThai.variable} dark h-full antialiased`}
       suppressHydrationWarning
     >

@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
 import {
   Compass,
   LibraryBig,
@@ -12,6 +10,7 @@ import {
   LogOut,
   MessageCircleHeart,
 } from "lucide-react";
+import { useTranslations, useLocale } from "next-intl";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { NavDailyClaim } from "@/features/shell/components/nav-daily-claim";
@@ -23,13 +22,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Link, usePathname, useRouter } from "@/i18n/navigation";
+import { toBcp47, type AppLocale } from "@/i18n/routing";
 
-const NAV_ITEMS = [
-  { href: "/discover", label: "ค้นพบ", icon: Compass },
-  { href: "/library", label: "คลัง", icon: LibraryBig },
-  { href: "/persona", label: "ตัวตน", icon: UserRound },
-  { href: "/creator", label: "ครีเอเตอร์", icon: BookUser },
-  { href: "/settings", label: "ตั้งค่า", icon: Settings },
+const NAV_HREFS = [
+  { href: "/discover", key: "discover" as const, icon: Compass },
+  { href: "/library", key: "library" as const, icon: LibraryBig },
+  { href: "/persona", key: "persona" as const, icon: UserRound },
+  { href: "/creator", key: "creator" as const, icon: BookUser },
+  { href: "/settings", key: "settings" as const, icon: Settings },
 ];
 
 export interface ShellUser {
@@ -46,6 +47,8 @@ export function AppShell({
   walletTotal: number | null;
   children: React.ReactNode;
 }) {
+  const t = useTranslations("Nav");
+  const locale = useLocale() as AppLocale;
   const pathname = usePathname();
   const router = useRouter();
 
@@ -57,7 +60,6 @@ export function AppShell({
 
   return (
     <div className="min-h-dvh bg-background text-foreground">
-      {/* Header */}
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
           <Link href="/" className="flex items-center gap-2 font-bold">
@@ -67,8 +69,8 @@ export function AppShell({
             </span>
           </Link>
 
-          <nav className="ml-4 hidden items-center gap-1 md:flex" aria-label="หลัก">
-            {NAV_ITEMS.map((item) => (
+          <nav className="ml-4 hidden items-center gap-1 md:flex" aria-label={t("main")}>
+            {NAV_HREFS.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -78,7 +80,7 @@ export function AppShell({
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
               >
-                {item.label}
+                {t(item.key)}
               </Link>
             ))}
           </nav>
@@ -90,10 +92,10 @@ export function AppShell({
               <Link
                 href="/wallet"
                 className="flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-sm font-medium text-amber-500 transition-colors hover:bg-amber-500/20"
-                title="พลังงานของคุณ"
+                title={t("energyTitle")}
               >
                 <Zap className="size-4 fill-amber-400 text-amber-400" aria-hidden />
-                {walletTotal.toLocaleString("th-TH")}
+                {walletTotal.toLocaleString(toBcp47(locale))}
               </Link>
             )}
 
@@ -110,20 +112,20 @@ export function AppShell({
                   <DropdownMenuLabel className="truncate">{user.email}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/create/character">สร้างตัวละคร</Link>
+                    <Link href="/create/character">{t("createCharacter")}</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href="/wallet">พลังงานของฉัน</Link>
+                    <Link href="/wallet">{t("myEnergy")}</Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut} variant="destructive">
-                    <LogOut className="size-4" aria-hidden /> ออกจากระบบ
+                    <LogOut className="size-4" aria-hidden /> {t("signOut")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
               <Button asChild size="sm" className="rounded-full">
-                <Link href="/login">เข้าสู่ระบบ</Link>
+                <Link href="/login">{t("login")}</Link>
               </Button>
             )}
           </div>
@@ -132,12 +134,11 @@ export function AppShell({
 
       <main className="mx-auto w-full max-w-6xl px-4 pt-6 pb-28 md:pb-16">{children}</main>
 
-      {/* Mobile bottom tabs */}
       <nav
         className="fixed inset-x-0 bottom-0 z-30 flex h-16 items-stretch border-t border-border bg-background/90 backdrop-blur md:hidden"
-        aria-label="หลัก (มือถือ)"
+        aria-label={t("mainMobile")}
       >
-        {NAV_ITEMS.map((item) => (
+        {NAV_HREFS.map((item) => (
           <Link
             key={item.href}
             href={item.href}
@@ -146,7 +147,7 @@ export function AppShell({
             }`}
           >
             <item.icon className="size-5" aria-hidden />
-            {item.label}
+            {t(item.key)}
           </Link>
         ))}
       </nav>

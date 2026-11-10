@@ -1,18 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jsonErrorResponse, requireUserId } from "@/lib/api/errors";
-import { listCharacters, searchCharacters, type CharacterSort } from "@/lib/characters/queries";
+import { jsonErrorResponseLocalized, requireUserId } from "@/lib/api/errors";
+import {
+  listCharacters,
+  searchCharacters,
+  type CharacterLanguageFilter,
+  type CharacterSort,
+} from "@/lib/characters/queries";
 import { createCharacter } from "@/lib/characters/mutations";
 import { characterInputSchema } from "@/lib/validation/character";
 import { enforceRateLimit } from "@/lib/rate-limit";
 
-/** GET /api/characters — list public + filters q/sort/tag/cursor */
+function parseLanguage(raw: string | null): CharacterLanguageFilter | undefined {
+  if (raw === "TH" || raw === "EN" || raw === "BILINGUAL" || raw === "ALL") return raw;
+  return undefined;
+}
+
+/** GET /api/characters — list public + filters q/sort/tag/lang/cursor */
 export async function GET(request: NextRequest) {
   try {
     const sp = request.nextUrl.searchParams;
     const q = sp.get("q")?.trim();
+    const language = parseLanguage(sp.get("lang"));
 
     if (q) {
-      const items = await searchCharacters(q);
+      const items = await searchCharacters(q, 30, language);
       return NextResponse.json({ items, nextCursor: null });
     }
 
@@ -23,12 +34,13 @@ export async function GET(request: NextRequest) {
     const result = await listCharacters({
       sort,
       tag: sp.get("tag") ?? undefined,
+      language,
       cursor: sp.get("cursor") ?? undefined,
       limit: sp.get("limit") ? Number(sp.get("limit")) : undefined,
     });
     return NextResponse.json(result);
   } catch (error) {
-    return jsonErrorResponse(error);
+    return jsonErrorResponseLocalized(error);
   }
 }
 
@@ -42,7 +54,7 @@ export async function POST(request: NextRequest) {
     const character = await createCharacter(userId, body, { publish: body.publish });
     return NextResponse.json({ character }, { status: 201 });
   } catch (error) {
-    return jsonErrorResponse(error);
+    return jsonErrorResponseLocalized(error);
   }
 }
 

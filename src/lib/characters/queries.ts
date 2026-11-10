@@ -9,11 +9,15 @@ import { isUuid } from "@/lib/utils";
 
 export type CharacterSort = "trending" | "new" | "popular";
 
+export type CharacterLanguageFilter = "TH" | "EN" | "BILINGUAL" | "ALL";
+
 export interface CharacterCardData {
   id: string;
   name: string;
   slug: string;
   tagline: string;
+  taglineEn: string | null;
+  primaryLanguage: string;
   avatarUrl: string | null;
   contentRating: string;
   chatCount: number;
@@ -29,6 +33,8 @@ const cardSelect = {
   name: true,
   slug: true,
   tagline: true,
+  taglineEn: true,
+  primaryLanguage: true,
   avatarUrl: true,
   contentRating: true,
   chatCount: true,
@@ -48,6 +54,8 @@ function toCard(row: CardRow): CharacterCardData {
     name: row.name,
     slug: row.slug,
     tagline: row.tagline,
+    taglineEn: row.taglineEn,
+    primaryLanguage: row.primaryLanguage,
     avatarUrl: row.avatarUrl,
     contentRating: row.contentRating,
     chatCount: row.chatCount,
@@ -57,6 +65,13 @@ function toCard(row: CardRow): CharacterCardData {
     creatorUsername: row.creator?.username ?? null,
     tags: row.characterTags.map((ct) => ct.tag.slug),
   };
+}
+
+function languageWhere(lang?: CharacterLanguageFilter): Prisma.CharacterWhereInput {
+  if (!lang || lang === "ALL") return {};
+  if (lang === "BILINGUAL") return { primaryLanguage: "BILINGUAL" };
+  // TH/EN feeds also include bilingual characters
+  return { primaryLanguage: { in: [lang, "BILINGUAL"] } };
 }
 
 // listing สาธารณะ = เผยแพร่แล้ว + public (draft/pending/rejected ของ owner เท่านั้น)
@@ -132,6 +147,7 @@ function decodeCursor(cursor?: string): CursorPayload | null {
 export async function listCharacters(params: {
   sort?: CharacterSort;
   tag?: string;
+  language?: CharacterLanguageFilter;
   cursor?: string;
   limit?: number;
 }): Promise<{ items: CharacterCardData[]; nextCursor: string | null }> {
@@ -141,6 +157,7 @@ export async function listCharacters(params: {
   const rows = await prisma.character.findMany({
     where: {
       ...PUBLIC_ONLY,
+      ...languageWhere(params.language),
       ...("where" in seek ? (seek.where as Prisma.CharacterWhereInput) : {}),
       ...(params.tag ? { characterTags: { some: { tag: { slug: params.tag } } } } : {}),
     },
@@ -166,16 +183,23 @@ export async function listCharacters(params: {
 }
 
 /** Full-text แบบ ILIKE — Thai ไม่ตัดคำด้วย to_tsvector จึงใช้ contains (ดู decisions.md) */
-export async function searchCharacters(q: string, limit = 30): Promise<CharacterCardData[]> {
+export async function searchCharacters(
+  q: string,
+  limit = 30,
+  language?: CharacterLanguageFilter
+): Promise<CharacterCardData[]> {
   const term = q.trim();
   if (!term) return [];
   const rows = await prisma.character.findMany({
     where: {
       ...PUBLIC_ONLY,
+      ...languageWhere(language),
       OR: [
         { name: { contains: term, mode: "insensitive" } },
         { tagline: { contains: term, mode: "insensitive" } },
+        { taglineEn: { contains: term, mode: "insensitive" } },
         { description: { contains: term, mode: "insensitive" } },
+        { descriptionEn: { contains: term, mode: "insensitive" } },
         { creator: { username: { contains: term.toLowerCase(), mode: "insensitive" } } },
         { characterTags: { some: { tag: { name: { contains: term, mode: "insensitive" } } } } },
       ],
@@ -235,8 +259,10 @@ export interface DiscoverSections {
   categories: { tag: { slug: string; name: string }; items: CharacterCardData[] }[];
 }
 
-export async function getDiscoverSections(): Promise<DiscoverSections> {
-  const base = { ...PUBLIC_ONLY };
+export async function getDiscoverSections(
+  language?: CharacterLanguageFilter
+): Promise<DiscoverSections> {
+  const base = { ...PUBLIC_ONLY, ...languageWhere(language) };
   const [trendingRows, newRows, popularRows, topTags] = await Promise.all([
     prisma.character.findMany({ where: base, orderBy: [{ trendScore: "desc" }, { chatCount: "desc" }], take: 12, select: cardSelect }),
     prisma.character.findMany({ where: base, orderBy: { createdAt: "desc" }, take: 12, select: cardSelect }),
@@ -253,7 +279,11 @@ export async function getDiscoverSections(): Promise<DiscoverSections> {
       .filter((t) => t._count.characters > 0)
       .map(async (tag) => {
         const rows = await prisma.character.findMany({
-          where: { ...PUBLIC_ONLY, characterTags: { some: { tag: { slug: tag.slug } } } },
+          where: {
+            ...PUBLIC_ONLY,
+            ...languageWhere(language),
+            characterTags: { some: { tag: { slug: tag.slug } } },
+          },
           orderBy: { chatCount: "desc" },
           take: 4,
           select: cardSelect,
