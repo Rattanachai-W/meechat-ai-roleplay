@@ -1,24 +1,18 @@
 import { cache } from "react";
-import { isSupabaseConfigured } from "@/lib/env";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth/auth";
 
 export interface CurrentUser {
   id: string;
   email?: string;
 }
 
-/** User ปัจจุบันจาก Supabase session (cached ต่อ request) — null ถ้ายังไม่ login */
+/** User ปัจจุบันจาก Better Auth session (cached ต่อ request) — null ถ้ายังไม่ login */
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
-  if (!isSupabaseConfigured()) return null;
-
   try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) return null;
-    return { id: user.id, email: user.email };
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session?.user) return null;
+    return { id: session.user.id, email: session.user.email };
   } catch {
     return null;
   }

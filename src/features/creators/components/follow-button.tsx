@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { UserPlus, UserCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -15,6 +16,7 @@ export function FollowButton({
   initialFollowing: boolean;
   isLoggedIn: boolean;
 }) {
+  const t = useTranslations("Creator");
   const router = useRouter();
   const [following, setFollowing] = useState(initialFollowing);
   const [loading, setLoading] = useState(false);
@@ -33,7 +35,7 @@ export function FollowButton({
       else throw new Error();
     } catch {
       setFollowing((v) => !v);
-      toast.error("ทำรายการไม่สำเร็จ");
+      toast.error(t("followFailed"));
     } finally {
       setLoading(false);
     }
@@ -49,11 +51,11 @@ export function FollowButton({
     >
       {following ? (
         <>
-          <UserCheck className="size-4" aria-hidden /> ติดตามอยู่
+          <UserCheck className="size-4" aria-hidden /> {t("following")}
         </>
       ) : (
         <>
-          <UserPlus className="size-4" aria-hidden /> ติดตาม
+          <UserPlus className="size-4" aria-hidden /> {t("follow")}
         </>
       )}
     </Button>

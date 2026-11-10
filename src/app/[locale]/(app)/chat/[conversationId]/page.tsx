@@ -12,12 +12,12 @@ export const dynamic = "force-dynamic";
 export default async function ChatPage(props: {
   params: Promise<{ locale: string; conversationId: string }>;
 }) {
-  const { conversationId } = await props.params;
+  const { locale, conversationId } = await props.params;
   if (!isUuid(conversationId)) notFound();
   const user = await getCurrentUser();
   if (!user) {
-    const locale = await getLocale();
-    redirect({ href: "/login", locale });
+    const current = await getLocale();
+    redirect({ href: "/login", locale: current });
     return;
   }
 
@@ -36,6 +36,7 @@ export default async function ChatPage(props: {
     select: { points: true },
   });
   const affinityLv = pointsToLevel(affinityRow?.points ?? 0);
+  const intimacyLabel = locale === "en" ? affinityLv.labelEn : affinityLv.label;
 
   return (
     <ChatView
@@ -44,7 +45,7 @@ export default async function ChatPage(props: {
       characterName={conversation.character.name}
       avatarUrl={conversation.character.avatarUrl}
       intimacyLevel={affinityLv.level}
-      intimacyLabel={affinityLv.label}
+      intimacyLabel={intimacyLabel}
     />
   );
 }

@@ -37,7 +37,7 @@ export function CharacterCard({ character }: { character: CharacterCardProps }) 
   return (
     <Link
       href={`/character/${character.id}`}
-      className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-all hover:-translate-y-0.5 hover:border-fuchsia-500/40 hover:shadow-lg hover:shadow-fuchsia-500/5"
+      className="group relative flex flex-col overflow-hidden rounded-2xl border border-border/80 bg-card transition-all duration-200 hover:-translate-y-0.5 hover:border-fuchsia-500/35 hover:shadow-md hover:shadow-fuchsia-500/8"
     >
       <div
         className={`relative aspect-[3/4] w-full bg-gradient-to-br ${gradientFor(character.slug)}`}
@@ -47,11 +47,11 @@ export function CharacterCard({ character }: { character: CharacterCardProps }) 
           <img
             src={character.avatarUrl}
             alt={character.name}
-            className="size-full object-cover"
+            className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
             loading="lazy"
           />
         ) : (
-          <span className="absolute inset-0 grid place-items-center text-6xl font-black text-white/90 drop-shadow-lg">
+          <span className="absolute inset-0 grid place-items-center text-5xl font-black tracking-tight text-white/90 drop-shadow-md sm:text-6xl">
             {character.name.slice(0, 1)}
           </span>
         )}
@@ -60,12 +60,12 @@ export function CharacterCard({ character }: { character: CharacterCardProps }) 
             18+
           </Badge>
         )}
-        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/55 to-transparent" />
       </div>
 
-      <div className="flex flex-1 flex-col gap-1 p-3">
-        <p className="line-clamp-1 font-semibold">{character.name}</p>
-        <p className="line-clamp-2 text-xs text-muted-foreground">{character.tagline}</p>
+      <div className="flex flex-1 flex-col gap-1.5 p-3.5">
+        <p className="line-clamp-1 text-[15px] font-semibold tracking-tight">{character.name}</p>
+        <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">{character.tagline}</p>
         <div className="mt-auto flex items-center gap-3 pt-2 text-[11px] text-muted-foreground">
           {typeof character.chatCount === "number" && (
             <span className="flex items-center gap-1">

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Link, useRouter } from "@/i18n/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { Heart, Star, Play, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,6 @@ interface PersonaOption {
   isDefault: boolean;
 }
 
-/** แถวปุ่ม action ของหน้าตัวละคร: เริ่มแชท / ถูกใจ / รายการโปรด / แก้ไข (owner) */
 export function CharacterActions({
   characterId,
   isLoggedIn,
@@ -31,6 +31,11 @@ export function CharacterActions({
   isOwner: boolean;
   initial: { liked: boolean; favorited: boolean; likeCount: number; favoriteCount: number };
 }) {
+  const t = useTranslations("Character");
+  const tCommon = useTranslations("Common");
+  const tNav = useTranslations("Nav");
+  const tPersona = useTranslations("Persona");
+  const locale = useLocale();
   const router = useRouter();
   const [liked, setLiked] = useState(initial.liked);
   const [favorited, setFavorited] = useState(initial.favorited);
@@ -40,6 +45,8 @@ export function CharacterActions({
   const [personas, setPersonas] = useState<PersonaOption[] | null>(null);
   const [starting, setStarting] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  const numberLocale = locale === "th" ? "th-TH" : "en-US";
 
   async function ensurePersonas(): Promise<PersonaOption[]> {
     if (personas) return personas;
@@ -72,12 +79,12 @@ export function CharacterActions({
         const err = (await res.json().catch(() => null)) as
           | { error?: { message?: string } }
           | null;
-        throw new Error(err?.error?.message ?? "เริ่มบทสนทนาไม่สำเร็จ");
+        throw new Error(err?.error?.message ?? t("startConversationFailed"));
       }
       const data = (await res.json()) as { conversation: { id: string } };
       router.push(`/chat/${data.conversation.id}`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "เกิดข้อผิดพลาด");
+      toast.error(error instanceof Error ? error.message : tCommon("errorGeneric"));
       setStarting(false);
     }
   }
@@ -88,7 +95,6 @@ export function CharacterActions({
       return;
     }
     const endpoint = kind === "like" ? "like" : "favorite";
-    // optimistic
     if (kind === "like") {
       setLiked((v) => !v);
       setLikeCount((n) => n + (liked ? -1 : 1));
@@ -99,7 +105,6 @@ export function CharacterActions({
     startTransition(async () => {
       const res = await fetch(`/api/characters/${characterId}/${endpoint}`, { method: "POST" });
       if (!res.ok) {
-        // rollback
         if (kind === "like") {
           setLiked(liked);
           setLikeCount((n) => n + (liked ? 1 : -1));
@@ -107,7 +112,7 @@ export function CharacterActions({
           setFavorited(favorited);
           setFavoriteCount((n) => n + (favorited ? 1 : -1));
         }
-        toast.error("ทำรายการไม่สำเร็จ");
+        toast.error(t("actionFailed"));
         return;
       }
       const data = (await res.json()) as { liked?: boolean; likeCount?: number; favorited?: boolean; favoriteCount?: number };
@@ -123,13 +128,13 @@ export function CharacterActions({
   }
 
   async function removeCharacter() {
-    if (!confirm("ลบตัวละครนี้ถาวร? บทสนทนาที่เกี่ยวข้องจะถูกลบด้วย")) return;
+    if (!confirm(t("deleteCharacterConfirm"))) return;
     const res = await fetch(`/api/characters/${characterId}`, { method: "DELETE" });
     if (res.ok) {
-      toast.success("ลบแล้ว");
+      toast.success(t("deleteSuccess"));
       router.push("/discover");
     } else {
-      toast.error("ลบไม่สำเร็จ");
+      toast.error(tCommon("deleteFailed"));
     }
   }
 
@@ -138,7 +143,7 @@ export function CharacterActions({
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={startChat} disabled={starting || pending} className="rounded-full">
           <Play className="size-4" aria-hidden />
-          {starting ? "กำลังเริ่ม..." : "เริ่มบทสนทนา"}
+          {starting ? t("startingConversation") : t("startConversation")}
         </Button>
 
         <Button
@@ -148,7 +153,7 @@ export function CharacterActions({
           onClick={() => toggle("like")}
         >
           <Heart className={`size-4 ${liked ? "fill-current" : ""}`} aria-hidden />
-          {likeCount.toLocaleString("th-TH")}
+          {likeCount.toLocaleString(numberLocale)}
         </Button>
         <Button
           variant={favorited ? "default" : "outline"}
@@ -157,14 +162,14 @@ export function CharacterActions({
           onClick={() => toggle("favorite")}
         >
           <Star className={`size-4 ${favorited ? "fill-current" : ""}`} aria-hidden />
-          {favoriteCount.toLocaleString("th-TH")}
+          {favoriteCount.toLocaleString(numberLocale)}
         </Button>
 
         {isOwner && (
           <>
             <Button asChild variant="outline" size="sm" className="rounded-full">
               <Link href={`/create/character?id=${characterId}`}>
-                <Pencil className="size-4" aria-hidden /> แก้ไข
+                <Pencil className="size-4" aria-hidden /> {tCommon("edit")}
               </Link>
             </Button>
             <Button
@@ -173,7 +178,7 @@ export function CharacterActions({
               className="rounded-full text-destructive hover:text-destructive"
               onClick={removeCharacter}
             >
-              <Trash2 className="size-4" aria-hidden /> ลบ
+              <Trash2 className="size-4" aria-hidden /> {tCommon("delete")}
             </Button>
           </>
         )}
@@ -181,32 +186,32 @@ export function CharacterActions({
 
       {isLoggedIn && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span className="whitespace-nowrap">เล่นเป็น:</span>
+          <span className="whitespace-nowrap">{t("playAs")}</span>
           <Select value={personaId} onValueChange={setPersonaId}>
             <SelectTrigger size="sm" className="w-52 rounded-full">
-              <SelectValue placeholder="(ไม่ระบุ — เป็นตัวเอง)" />
+              <SelectValue placeholder={t("personaNone")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="_none">(ไม่ระบุ — เป็นตัวเอง)</SelectItem>
+              <SelectItem value="_none">{t("personaNone")}</SelectItem>
               {(personas ?? []).map((p) => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.name}
-                  {p.isDefault ? " ★" : ""}
+                  {p.isDefault ? ` (${tPersona("default")})` : ""}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Link href="/persona" className="text-xs underline hover:text-foreground">
-            จัดการ persona
+            {t("managePersonas")}
           </Link>
         </div>
       )}
       {!isLoggedIn && (
         <p className="text-sm text-muted-foreground">
           <Link href="/login" className="text-primary underline">
-            เข้าสู่ระบบ
+            {tNav("login")}
           </Link>{" "}
-          เพื่อเริ่มคุยได้ทันที
+          {t("loginPromptChat")}
         </p>
       )}
     </div>

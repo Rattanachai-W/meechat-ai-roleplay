@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: meechat-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: meechat
+      POSTGRES_PASSWORD: meechat
+      POSTGRES_DB: meechat
+    volumes:
+      - meechat_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U meechat -d meechat"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  meechat_pg_data:

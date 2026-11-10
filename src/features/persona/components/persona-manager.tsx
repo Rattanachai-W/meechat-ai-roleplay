@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Loader2, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 
 interface Persona {
   id: string;
@@ -40,6 +43,8 @@ const EMPTY = {
 };
 
 export function PersonaManager() {
+  const t = useTranslations("Persona");
+  const tCommon = useTranslations("Common");
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -55,7 +60,7 @@ export function PersonaManager() {
       const data = (await res.json()) as { personas: Persona[] };
       setPersonas(data.personas);
     } catch {
-      toast.error("โหลด persona ไม่สำเร็จ");
+      toast.error(t("loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -66,9 +71,9 @@ export function PersonaManager() {
     fetch("/api/personas")
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("load failed"))))
       .then((d: { personas: Persona[] }) => setPersonas(d.personas))
-      .catch(() => toast.error("โหลด persona ไม่สำเร็จ"))
+      .catch(() => toast.error(t("loadFailed")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
 
   function openCreate() {
     setEditId(null);
@@ -94,7 +99,7 @@ export function PersonaManager() {
 
   async function save() {
     if (!form.name.trim()) {
-      toast.error("กรอกชื่อ persona ก่อน");
+      toast.error(t("nameRequired"));
       return;
     }
     setSaving(true);
@@ -118,26 +123,26 @@ export function PersonaManager() {
         const err = (await res.json().catch(() => null)) as
           | { error?: { message?: string } }
           | null;
-        throw new Error(err?.error?.message ?? "บันทึกไม่สำเร็จ");
+        throw new Error(err?.error?.message ?? tCommon("saveFailed"));
       }
-      toast.success(editId ? "บันทึกแล้ว" : "สร้าง persona แล้ว");
+      toast.success(editId ? tCommon("saved") : t("created"));
       setDialogOpen(false);
       await load();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "เกิดข้อผิดพลาด");
+      toast.error(error instanceof Error ? error.message : tCommon("errorGeneric"));
     } finally {
       setSaving(false);
     }
   }
 
   async function remove(p: Persona) {
-    if (!confirm(`ลบ persona "${p.name}"?`)) return;
+    if (!confirm(t("deleteConfirm", { name: p.name }))) return;
     const res = await fetch(`/api/personas/${p.id}`, { method: "DELETE" });
     if (res.ok) {
-      toast.success("ลบแล้ว");
+      toast.success(tCommon("deleted"));
       await load();
     } else {
-      toast.error("ลบไม่สำเร็จ");
+      toast.error(t("deleteFailed"));
     }
   }
 
@@ -160,24 +165,27 @@ export function PersonaManager() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">ตัวตนของฉัน (Persona)</h1>
-          <p className="text-sm text-muted-foreground">
-            สร้างตัวตนประจำตัวไว้ใช้ในบทสนทนา — AI จะจำและเรียกคุณตามนี้
-          </p>
-        </div>
-        <Button onClick={openCreate} className="rounded-full">
-          <Plus className="size-4" aria-hidden /> สร้าง
-        </Button>
-      </div>
+      <PageHeader
+        title={t("title")}
+        description={t("subtitle")}
+        actions={
+          <Button onClick={openCreate} className="rounded-full">
+            <Plus className="size-4" aria-hidden /> {t("create")}
+          </Button>
+        }
+      />
 
       {personas.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            ยังไม่มี persona — กด &ldquo;สร้าง&rdquo; เพื่อเพิ่มตัวตนแรกของคุณ
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={<Plus className="size-5" aria-hidden />}
+          title={t("emptyTitle")}
+          description={t("emptyBody")}
+          action={
+            <Button onClick={openCreate} className="rounded-full">
+              <Plus className="size-4" aria-hidden /> {t("create")}
+            </Button>
+          }
+        />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {personas.map((p) => (
@@ -187,7 +195,7 @@ export function PersonaManager() {
                   <p className="font-semibold">{p.name}</p>
                   {p.isDefault && (
                     <span className="flex items-center gap-0.5 text-xs text-fuchsia-500">
-                      <Star className="size-3 fill-current" aria-hidden /> ค่าเริ่มต้น
+                      <Star className="size-3 fill-current" aria-hidden /> {t("default")}
                     </span>
                   )}
                   <span className="ml-auto flex items-center gap-1">
@@ -196,7 +204,7 @@ export function PersonaManager() {
                         type="button"
                         onClick={() => makeDefault(p)}
                         className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-fuchsia-500"
-                        aria-label="ตั้งเป็นค่าเริ่มต้น"
+                        aria-label={t("setDefault")}
                       >
                         <Star className="size-4" aria-hidden />
                       </button>
@@ -205,7 +213,7 @@ export function PersonaManager() {
                       type="button"
                       onClick={() => openEdit(p)}
                       className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                      aria-label="แก้ไข"
+                      aria-label={tCommon("edit")}
                     >
                       <Pencil className="size-4" aria-hidden />
                     </button>
@@ -213,7 +221,7 @@ export function PersonaManager() {
                       type="button"
                       onClick={() => remove(p)}
                       className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-destructive"
-                      aria-label="ลบ"
+                      aria-label={tCommon("delete")}
                     >
                       <Trash2 className="size-4" aria-hidden />
                     </button>
@@ -221,7 +229,7 @@ export function PersonaManager() {
                 </div>
                 {(p.gender || p.age) && (
                   <p className="text-xs text-muted-foreground">
-                    {[p.gender, p.age ? `${p.age} ปี` : null].filter(Boolean).join(" • ")}
+                    {[p.gender, p.age ? t("yearsOld", { age: p.age }) : null].filter(Boolean).join(" • ")}
                   </p>
                 )}
                 {p.description && <p className="line-clamp-3 text-sm">{p.description}</p>}
@@ -234,21 +242,21 @@ export function PersonaManager() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editId ? "แก้ไข persona" : "สร้าง persona ใหม่"}</DialogTitle>
+            <DialogTitle>{editId ? t("editTitle") : t("createTitle")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>ชื่อ *</Label>
-                <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="ชื่อเล่นของคุณ" />
+                <Label>{t("name")} *</Label>
+                <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder={t("namePlaceholder")} />
               </div>
               <div className="space-y-1.5">
-                <Label>เพศ</Label>
-                <Input value={form.gender} onChange={(e) => setForm((f) => ({ ...f, gender: e.target.value }))} placeholder="ไม่ระบุก็ได้" />
+                <Label>{t("gender")}</Label>
+                <Input value={form.gender} onChange={(e) => setForm((f) => ({ ...f, gender: e.target.value }))} placeholder={t("genderPlaceholder")} />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>อายุ</Label>
+              <Label>{t("age")}</Label>
               <Input
                 type="number"
                 min={1}
@@ -258,33 +266,33 @@ export function PersonaManager() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>ลักษณะ / หน้าตา</Label>
+              <Label>{t("appearance")}</Label>
               <Textarea rows={2} value={form.appearance} onChange={(e) => setForm((f) => ({ ...f, appearance: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <Label>นิสัย</Label>
+              <Label>{t("personality")}</Label>
               <Textarea rows={2} value={form.personality} onChange={(e) => setForm((f) => ({ ...f, personality: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <Label>เรื่องย่อ</Label>
+              <Label>{t("description")}</Label>
               <Textarea rows={3} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
-              <Label>อื่น ๆ ที่อยากให้ AI รู้</Label>
+              <Label>{t("context")}</Label>
               <Textarea rows={2} value={form.additionalContext} onChange={(e) => setForm((f) => ({ ...f, additionalContext: e.target.value }))} />
             </div>
             <label className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
-              <span className="text-sm">ตั้งเป็น persona เริ่มต้น</span>
+              <span className="text-sm">{t("isDefault")}</span>
               <Switch checked={isDefault} onCheckedChange={setIsDefault} />
             </label>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              ยกเลิก
+              {tCommon("cancel")}
             </Button>
             <Button onClick={save} disabled={saving}>
               {saving && <Loader2 className="size-4 animate-spin" aria-hidden />}
-              {editId ? "บันทึก" : "สร้าง"}
+              {editId ? tCommon("save") : tCommon("create")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { ArrowLeft, ChevronLeft, ChevronRight, Heart, RefreshCw, Send, Square } from "lucide-react";
 import { toast } from "sonner";
@@ -66,6 +67,8 @@ async function consumeSse(
 }
 
 export function ChatView(props: ChatViewProps) {
+  const t = useTranslations("Chat");
+  const tCommon = useTranslations("Common");
   const router = useRouter();
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [streamingText, setStreamingText] = useState<string | null>(null);
@@ -91,9 +94,9 @@ export function ChatView(props: ChatViewProps) {
         setMessages([...normalized].reverse());
         setVariantCounts(d.variantCounts ?? {});
       })
-      .catch(() => toast.error("โหลดประวัติแชทไม่สำเร็จ"))
+      .catch(() => toast.error(t("loadFailed")))
       .finally(() => setLoadingHistory(false));
-  }, [props.conversationId]);
+  }, [props.conversationId, t]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -149,7 +152,7 @@ export function ChatView(props: ChatViewProps) {
           const msg =
             error instanceof Error && !error.message.startsWith("HTTP")
               ? error.message
-              : "เกิดข้อผิดพลาด ลองอีกครั้ง";
+              : t("streamError");
           toast.error(msg);
         }
       } finally {
@@ -188,7 +191,7 @@ export function ChatView(props: ChatViewProps) {
             { id: serverId ?? `local-${Date.now()}`, role: "assistant", content: finalContent, status: aborted ? "ABORTED" : "COMPLETED" },
           ]);
         } else if (!aborted && finalContent.trim().length === 0) {
-          toast.error("AI ไม่ได้ตอบกลับ ลองส่งใหม่อีกครั้ง");
+          toast.error(t("emptyReply"));
         }
 
         setStreamingText(null);
@@ -197,7 +200,7 @@ export function ChatView(props: ChatViewProps) {
         if (donePayload) router.refresh();
       }
     },
-    [messages, router]
+    [messages, router, t]
   );
 
   function send() {
@@ -242,15 +245,14 @@ export function ChatView(props: ChatViewProps) {
 
   return (
     <div className="mx-auto flex h-[calc(100dvh-3.5rem-2rem)] max-w-3xl flex-col md:h-[calc(100dvh-3.5rem-4rem)]">
-      {/* Header */}
-      <header className="flex items-center gap-3 border-b border-border pb-3">
+      <header className="flex items-center gap-2 border-b border-border/70 pb-3 sm:gap-3">
         <Button asChild variant="ghost" size="icon" className="rounded-full">
-          <Link href={`/character/${props.characterId}`} aria-label="กลับไปหน้าตัวละคร">
+          <Link href={`/character/${props.characterId}`} aria-label={t("backToCharacter")}>
             <ArrowLeft className="size-5" aria-hidden />
           </Link>
         </Button>
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-fuchsia-500 to-sky-500 text-sm font-bold text-white">
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+          <div className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-fuchsia-500 to-sky-500 text-sm font-bold text-white ring-2 ring-background">
             {props.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={props.avatarUrl} alt="" className="size-full object-cover" />
@@ -258,21 +260,25 @@ export function ChatView(props: ChatViewProps) {
               props.characterName.slice(0, 1)
             )}
           </div>
-          <p className="truncate font-semibold">{props.characterName}</p>
-          {/* ความสนิท — router.refresh หลัง claim รางวัลทำให้ badge update เอง */}
+          <div className="min-w-0">
+            <p className="truncate font-semibold tracking-tight">{props.characterName}</p>
+            <p className="truncate text-[11px] text-muted-foreground">{props.intimacyLabel}</p>
+          </div>
           <span
-            className="flex shrink-0 items-center gap-1 rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] font-semibold text-rose-600 dark:text-rose-400"
-            title={`ความสนิท: ${props.intimacyLabel}`}
+            className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-rose-500/12 px-2 py-0.5 text-[11px] font-semibold text-rose-600 dark:text-rose-400"
+            title={t("intimacyTitle", { label: props.intimacyLabel })}
           >
-            <Heart className="size-3 fill-current" aria-hidden />Lv.{props.intimacyLevel}
+            <Heart className="size-3 fill-current" aria-hidden />
+            Lv.{props.intimacyLevel}
           </span>
         </div>
         <QuestPanel characterId={props.characterId} />
       </header>
 
-      {/* Messages */}
-      <div className="flex-1 space-y-4 overflow-y-auto py-4">
-        {loadingHistory && <p className="text-center text-sm text-muted-foreground">กำลังโหลด...</p>}
+      <div className="flex-1 space-y-3.5 overflow-y-auto py-4">
+        {loadingHistory && (
+          <p className="py-8 text-center text-sm text-muted-foreground">{tCommon("loading")}</p>
+        )}
         {messages.map((m) => (
           <Bubble
             key={m.id}
@@ -287,7 +293,7 @@ export function ChatView(props: ChatViewProps) {
         {streamingText !== null && (
           <div ref={streamingRef} className="flex justify-start">
             {streamingText ? (
-              <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-muted px-4 py-2.5 text-sm">
+              <div className="max-w-[min(85%,36rem)] whitespace-pre-wrap rounded-2xl rounded-bl-md bg-muted/80 px-4 py-3 text-sm leading-relaxed">
                 {streamingText}
                 <span
                   className="ml-0.5 inline-block h-4 w-[2px] animate-pulse bg-foreground/70 align-middle"
@@ -296,9 +302,9 @@ export function ChatView(props: ChatViewProps) {
               </div>
             ) : (
               <div
-                className="flex items-center gap-1.5 rounded-2xl rounded-bl-sm bg-muted px-4 py-3.5"
+                className="flex items-center gap-1.5 rounded-2xl rounded-bl-md bg-muted/80 px-4 py-3.5"
                 role="status"
-                aria-label="กำลังพิมพ์"
+                aria-label={t("typing")}
               >
                 {[0, 150, 300].map((delay) => (
                   <span
@@ -314,8 +320,7 @@ export function ChatView(props: ChatViewProps) {
         <div ref={bottomRef} />
       </div>
 
-      {/* Composer */}
-      <footer className="sticky bottom-16 space-y-1 border-t border-border pt-3 md:bottom-0">
+      <footer className="sticky bottom-16 space-y-1.5 border-t border-border/70 bg-background/95 pt-3 backdrop-blur md:bottom-0">
         <div className="flex items-end gap-2">
           <Textarea
             value={input}
@@ -327,13 +332,13 @@ export function ChatView(props: ChatViewProps) {
               }
             }}
             rows={1}
-            placeholder={`พิมพ์ข้อความถึง ${props.characterName}...`}
-            className="max-h-36 flex-1 resize-none rounded-2xl"
+            placeholder={t("placeholder", { name: props.characterName })}
+            className="max-h-36 min-h-11 flex-1 resize-none rounded-2xl border-border/80 bg-muted/25 shadow-none"
             disabled={isStreaming}
-            aria-label="ข้อความ"
+            aria-label={t("messageLabel")}
           />
           {isStreaming ? (
-            <Button onClick={stop} size="icon" variant="outline" className="size-11 shrink-0 rounded-full" aria-label="หยุด">
+            <Button onClick={stop} size="icon" variant="outline" className="size-11 shrink-0 rounded-full" aria-label={t("stop")}>
               <Square className="size-4 fill-current" aria-hidden />
             </Button>
           ) : (
@@ -342,15 +347,13 @@ export function ChatView(props: ChatViewProps) {
               size="icon"
               className="size-11 shrink-0 rounded-full"
               disabled={input.trim().length === 0}
-              aria-label="ส่งข้อความ"
+              aria-label={t("send")}
             >
               <Send className="size-4" aria-hidden />
             </Button>
           )}
         </div>
-        <p className="text-center text-[10px] text-muted-foreground">
-          Enter ส่ง • Shift+Enter ขึ้นบรรทัดใหม่ • พลังงานถูกหักตามการใช้งานจริง (ส่วนเกินคืนอัตโนมัติ)
-        </p>
+        <p className="pb-1 text-center text-[10px] text-muted-foreground">{t("hint")}</p>
       </footer>
     </div>
   );
@@ -371,41 +374,42 @@ function Bubble({
   onRegenerate: () => void;
   onSwitch: (dir: -1 | 1) => void;
 }) {
+  const t = useTranslations("Chat");
   const isUser = message.role === "user";
   return (
-    <div className={`group flex flex-col ${isUser ? "items-end" : "items-start"}`}>
+    <div className={`group flex flex-col gap-1 ${isUser ? "items-end" : "items-start"}`}>
       <div
-        className={`max-w-[85%] whitespace-pre-wrap px-4 py-2.5 text-sm ${
+        className={`max-w-[min(85%,36rem)] whitespace-pre-wrap px-4 py-3 text-sm leading-relaxed ${
           isUser
-            ? "rounded-2xl rounded-br-sm bg-primary text-primary-foreground"
-            : "rounded-2xl rounded-bl-sm bg-muted"
+            ? "rounded-2xl rounded-br-md bg-primary text-primary-foreground"
+            : "rounded-2xl rounded-bl-md bg-muted/80"
         } ${message.status === "ABORTED" ? "opacity-70" : ""}`}
       >
         {message.content}
         {message.status === "ABORTED" && (
-          <span className="ml-2 text-[10px] uppercase tracking-wide opacity-60">(หยุดไว้)</span>
+          <span className="ml-2 text-[10px] uppercase tracking-wide opacity-60">{t("aborted")}</span>
         )}
       </div>
 
       {!isUser && (
-        <div className="mt-1 flex items-center gap-1 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+        <div className="flex items-center gap-1 text-muted-foreground opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
           {variantCount > 1 && (
             <>
               <button
                 type="button"
                 onClick={() => onSwitch(-1)}
-                className="rounded p-0.5 hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-                aria-label="variant ก่อนหน้า"
+                className="rounded-md p-1 hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                aria-label={t("variantPrev")}
                 disabled={disabled}
               >
                 <ChevronLeft className="size-4" aria-hidden />
               </button>
-              <span className="text-[10px]">{variantCount} เวอร์ชัน</span>
+              <span className="text-[10px]">{t("variantCount", { count: variantCount })}</span>
               <button
                 type="button"
                 onClick={() => onSwitch(1)}
-                className="rounded p-0.5 hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-                aria-label="variant ถัดไป"
+                className="rounded-md p-1 hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+                aria-label={t("variantNext")}
                 disabled={disabled}
               >
                 <ChevronRight className="size-4" aria-hidden />
@@ -416,10 +420,10 @@ function Bubble({
             type="button"
             onClick={onRegenerate}
             disabled={disabled}
-            className="flex items-center gap-1 rounded p-0.5 text-xs hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
-            aria-label={`ให้ ${characterName} ตอบใหม่`}
+            className="flex items-center gap-1 rounded-md px-1.5 py-1 text-xs hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+            aria-label={t("regenerateAria", { name: characterName })}
           >
-            <RefreshCw className="size-3.5" aria-hidden /> ตอบใหม่
+            <RefreshCw className="size-3.5" aria-hidden /> {t("regenerate")}
           </button>
         </div>
       )}

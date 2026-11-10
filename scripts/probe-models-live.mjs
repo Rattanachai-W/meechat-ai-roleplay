@@ -6,18 +6,21 @@ function envOf(key) {
   const m = envText.match(new RegExp(`^${key}=(.*)$`, "m"));
   return m ? m[1].replace(/^["']|["']$/g, "").trim() : "";
 }
-const KEY = envOf("OPENROUTER_API_KEY");
+const KEY = envOf("LLM_API_KEY");
 const BASE = (envOf("LLM_API_URL") || "https://openrouter.ai/api/v1").replace(/\/+$/, "");
+const FORCED = envOf("LLM_MODEL");
 
-const MODELS = [
-  "google/gemini-2.0-flash-001",
-  "openai/gpt-4o-mini",
-  "meta-llama/llama-3.3-70b-instruct",
-  "deepseek/deepseek-chat",
-  "anthropic/claude-3.5-haiku",
-  "anthropic/claude-sonnet-4",
-  "google/gemma-3-27b-it:free",
-];
+const MODELS = FORCED
+  ? [FORCED]
+  : [
+      "google/gemini-2.0-flash-001",
+      "openai/gpt-4o-mini",
+      "meta-llama/llama-3.3-70b-instruct",
+      "deepseek/deepseek-chat",
+      "anthropic/claude-3.5-haiku",
+      "anthropic/claude-sonnet-4",
+      "google/gemma-3-27b-it:free",
+    ];
 
 for (const model of MODELS) {
   try {

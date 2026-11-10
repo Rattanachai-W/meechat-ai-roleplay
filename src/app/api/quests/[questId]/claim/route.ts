@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from "next/server";
 import { jsonErrorResponse, requireUserId } from "@/lib/api/errors";
 import { isUuid } from "@/lib/utils";
 import { claimQuestReward } from "@/lib/quests/service";
+import { resolveRequestLocale } from "@/lib/i18n/locale";
 
 type RouteContext = { params: Promise<{ questId: string }> };
 
@@ -20,11 +21,21 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       );
     }
 
+    const locale = await resolveRequestLocale();
     const result = await claimQuestReward(userId, questId);
+    const affinity = {
+      points: result.affinity.points,
+      level: result.affinity.level,
+      nextLevelAt: result.affinity.nextLevelAt,
+      label:
+        locale === "en"
+          ? (result.affinity.labelEn ?? result.affinity.label)
+          : result.affinity.label,
+    };
     return NextResponse.json({
       claimed: true,
       amount: result.amount,
-      affinity: result.affinity,
+      affinity,
     });
   } catch (error) {
     return jsonErrorResponse(error);

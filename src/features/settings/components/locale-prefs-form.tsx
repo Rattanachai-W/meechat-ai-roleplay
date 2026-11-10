@@ -27,6 +27,7 @@ export function LocalePrefsForm({
   initialCurrency: "THB" | "USD";
 }) {
   const t = useTranslations("Settings");
+  const tCommon = useTranslations("Common");
   const locale = useLocale() as AppLocale;
   const router = useRouter();
   const pathname = usePathname();
@@ -44,7 +45,7 @@ export function LocalePrefsForm({
         body: JSON.stringify({ preferredLocale, timezone, preferredCurrency }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error?.message ?? "Save failed");
+      if (!res.ok) throw new Error(data?.error?.message ?? tCommon("saveFailed"));
       toast.success(t("prefsSaved"));
       if (preferredLocale !== locale) {
         router.replace(pathname, { locale: preferredLocale });
@@ -52,7 +53,7 @@ export function LocalePrefsForm({
         router.refresh();
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Save failed");
+      toast.error(error instanceof Error ? error.message : tCommon("saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -76,7 +77,7 @@ export function LocalePrefsForm({
                   : "border-border hover:bg-muted"
               }`}
             >
-              {code === "th" ? "ไทย" : "English"}
+              {code === "th" ? t("localeTh") : t("localeEn")}
             </button>
           ))}
         </div>

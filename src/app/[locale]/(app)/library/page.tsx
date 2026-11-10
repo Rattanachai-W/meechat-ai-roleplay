@@ -1,22 +1,38 @@
-import { getLocale } from "next-intl/server";
+import { getLocale, getTranslations, setRequestLocale } from "next-intl/server";
 import { Link, redirect } from "@/i18n/navigation";
 import type { Metadata } from "next";
 import { MessageCircle, Star, Heart, LibraryBig } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
 import { CharacterCard } from "@/features/characters/components/character-card";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { toBcp47, type AppLocale } from "@/i18n/routing";
 
-export const metadata: Metadata = { title: "คลังของฉัน — MeeChat" };
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata(props: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await props.params;
+  const t = await getTranslations({ locale, namespace: "Library" });
+  return { title: t("metaTitle") };
+}
 
 export default async function LibraryPage(props: {
   params: Promise<{ locale: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const { locale } = await props.params;
+  setRequestLocale(locale);
+  const t = await getTranslations("Library");
+  const bcp47 = toBcp47(locale as AppLocale);
+
   const user = await getCurrentUser();
   if (!user) {
-    const locale = await getLocale();
-    redirect({ href: "/login", locale });
+    const loc = await getLocale();
+    redirect({ href: "/login", locale: loc });
     return;
   }
   const sp = await props.searchParams;
@@ -73,28 +89,45 @@ export default async function LibraryPage(props: {
 
   return (
     <div className="space-y-6">
-      <h1 className="flex items-center gap-2 text-2xl font-bold">
-        <LibraryBig className="size-6 text-fuchsia-500" aria-hidden /> คลังของฉัน
-      </h1>
+      <PageHeader
+        title={t("title")}
+        description={t("subtitle")}
+        icon={<LibraryBig className="size-6 text-fuchsia-500" aria-hidden />}
+      />
 
-      <nav className="flex gap-2" aria-label="แท็บคลัง">
-        <TabLink href="/library?tab=chats" active={tab === "chats"} icon={<MessageCircle className="size-4" aria-hidden />}>แชทของฉัน</TabLink>
-        <TabLink href="/library?tab=favorites" active={tab === "favorites"} icon={<Star className="size-4" aria-hidden />}>รายการโปรด</TabLink>
-        <TabLink href="/library?tab=liked" active={tab === "liked"} icon={<Heart className="size-4" aria-hidden />}>ถูกใจ</TabLink>
+      <nav className="flex flex-wrap gap-2" aria-label={t("tabsLabel")}>
+        <TabLink href="/library?tab=chats" active={tab === "chats"} icon={<MessageCircle className="size-4" aria-hidden />}>
+          {t("tabChats")}
+        </TabLink>
+        <TabLink href="/library?tab=favorites" active={tab === "favorites"} icon={<Star className="size-4" aria-hidden />}>
+          {t("tabFavorites")}
+        </TabLink>
+        <TabLink href="/library?tab=liked" active={tab === "liked"} icon={<Heart className="size-4" aria-hidden />}>
+          {t("tabLiked")}
+        </TabLink>
       </nav>
 
       {tab === "chats" &&
         (conversations.length === 0 ? (
-          <Empty text="ยังไม่มีบทสนทนา — เริ่มคุยกับตัวละครจากหน้าค้นพบได้เลย" />
+          <EmptyState
+            icon={<MessageCircle className="size-5" aria-hidden />}
+            title={t("emptyChatsTitle")}
+            description={t("emptyChatsBody")}
+            action={
+              <Button asChild className="rounded-full">
+                <Link href="/discover">{t("goDiscover")}</Link>
+              </Button>
+            }
+          />
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2">
             {conversations.map((c) => (
               <li key={c.id}>
                 <Link
                   href={`/chat/${c.id}`}
-                  className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:border-fuchsia-500/40"
+                  className="flex items-center gap-3 rounded-2xl border border-border/80 bg-card p-3.5 transition-colors hover:border-fuchsia-500/35 hover:bg-muted/20"
                 >
-                  <div className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-fuchsia-500/70 to-sky-500/70 font-bold text-white">
+                  <div className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-fuchsia-500/70 to-sky-500/70 font-bold text-white">
                     {c.character.avatarUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={c.character.avatarUrl} alt="" className="size-full object-cover" />
@@ -103,9 +136,10 @@ export default async function LibraryPage(props: {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{c.title}</p>
+                    <p className="truncate font-medium tracking-tight">{c.title}</p>
                     <p className="truncate text-xs text-muted-foreground">
-                      {c.character.name} • {new Date(c.lastMessageAt).toLocaleString("th-TH", {
+                      {c.character.name} ·{" "}
+                      {new Date(c.lastMessageAt).toLocaleString(bcp47, {
                         dateStyle: "short",
                         timeStyle: "short",
                       })}
@@ -121,9 +155,24 @@ export default async function LibraryPage(props: {
       {(tab === "favorites" || tab === "liked") && (
         <>
           {(tab === "favorites" ? favorites : likes).length === 0 ? (
-            <Empty text={tab === "favorites" ? "ยังไม่มีรายการโปรด" : "ยังไม่มีตัวละครที่ถูกใจ"} />
+            <EmptyState
+              icon={
+                tab === "favorites" ? (
+                  <Star className="size-5" aria-hidden />
+                ) : (
+                  <Heart className="size-5" aria-hidden />
+                )
+              }
+              title={tab === "favorites" ? t("emptyFavoritesTitle") : t("emptyLikedTitle")}
+              description={t("emptySavedBody")}
+              action={
+                <Button asChild variant="outline" className="rounded-full">
+                  <Link href="/discover">{t("goDiscover")}</Link>
+                </Button>
+              }
+            />
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
               {(tab === "favorites" ? favorites : likes).map((f) => (
                 <CharacterCard key={f.character.slug} character={{ ...f.character, tags: [] }} />
               ))}
@@ -151,20 +200,12 @@ function TabLink({
       href={href}
       className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm transition-colors ${
         active
-          ? "border-fuchsia-500/50 bg-fuchsia-500/10 font-medium text-fuchsia-500"
-          : "border-border text-muted-foreground hover:bg-muted"
+          ? "border-fuchsia-500/40 bg-fuchsia-500/10 font-medium text-fuchsia-600 dark:text-fuchsia-400"
+          : "border-border/80 text-muted-foreground hover:bg-muted"
       }`}
     >
       {icon}
       {children}
     </Link>
-  );
-}
-
-function Empty({ text }: { text: string }) {
-  return (
-    <div className="rounded-xl border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
-      {text}
-    </div>
   );
 }

@@ -4,8 +4,7 @@
 // Conventions:
 // - Table names are snake_case via @@map / @map
 // - UUID primary keys
-// - `users.id` mirrors Supabase `auth.users.id` (created by SQL trigger,
-//   see supabase/sql/001_auth_triggers_rls.sql)
+// - `users.id` matches Better Auth `user.id` (provisioned on sign-up)
 
 generator client {
   provider = "prisma-client"
@@ -31,6 +30,7 @@ enum Visibility {
 
 // Publishing state machine (docs/creator-system.md §3):
 // DRAFT → PENDING → PUBLISHED / REJECTED (+ edit & resubmit)
+
 enum CharacterStatus {
   DRAFT
   PENDING
@@ -114,6 +114,7 @@ enum EnergyTransactionType {
 }
 
 // รายได้ครีเอเตอร์ (share-of-energy) — CHAT_SHARE = % จากพลังงานที่ user จ่ายจริง
+
 enum CreatorEarningType {
   CHAT_SHARE
   BONUS
@@ -130,17 +131,17 @@ enum AiUsageStatus {
 // ─────────────────────── Users & Personas ───────────────────────
 
 model User {
-  id                 String            @id @db.Uuid
-  email              String            @unique
-  displayName        String?           @map("display_name")
-  avatarUrl          String?           @map("avatar_url")
-  role               UserRole          @default(USER)
-  preferredLocale    AppLocaleCode     @default(th) @map("preferred_locale")
-  timezone           String            @default("Asia/Bangkok")
-  preferredCurrency  PreferredCurrency @default(THB) @map("preferred_currency")
-  matureConfirmedAt  DateTime?         @map("mature_confirmed_at")
-  createdAt          DateTime          @default(now()) @map("created_at")
-  updatedAt          DateTime          @updatedAt @map("updated_at")
+  id                String            @id @db.Uuid
+  email             String            @unique
+  displayName       String?           @map("display_name")
+  avatarUrl         String?           @map("avatar_url")
+  role              UserRole          @default(USER)
+  preferredLocale   AppLocaleCode     @default(th) @map("preferred_locale")
+  timezone          String            @default("Asia/Bangkok")
+  preferredCurrency PreferredCurrency @default(THB) @map("preferred_currency")
+  matureConfirmedAt DateTime?         @map("mature_confirmed_at")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
 
   personas      UserPersona[]
   creator       CreatorProfile?
@@ -183,20 +184,20 @@ model UserPersona {
 // ─────────────────────── Creators & Characters ───────────────────────
 
 model CreatorProfile {
-  id              String       @id @default(uuid()) @db.Uuid
-  userId          String       @unique @map("user_id") @db.Uuid
-  username        String       @unique
-  bio             String?
-  avatarUrl       String?      @map("avatar_url")
+  id            String       @id @default(uuid()) @db.Uuid
+  userId        String       @unique @map("user_id") @db.Uuid
+  username      String       @unique
+  bio           String?
+  avatarUrl     String?      @map("avatar_url")
   // Denormalized: source of truth = creator_earnings ledger (อัปเดตทรานแซกชันเดียวกัน)
-  totalEarned     Int          @default(0) @map("total_earned")
-  payoutStatus    PayoutStatus @default(NONE) @map("payout_status")
-  payoutReadyAt   DateTime?    @map("payout_ready_at")
-  kycNote         String?      @map("kyc_note")
-  createdAt       DateTime     @default(now()) @map("created_at")
-  updatedAt       DateTime     @updatedAt @map("updated_at")
+  totalEarned   Int          @default(0) @map("total_earned")
+  payoutStatus  PayoutStatus @default(NONE) @map("payout_status")
+  payoutReadyAt DateTime?    @map("payout_ready_at")
+  kycNote       String?      @map("kyc_note")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
 
-  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   characters Character[]
   followers  CreatorFollow[]
 
@@ -236,7 +237,7 @@ model Character {
   createdAt       DateTime          @default(now()) @map("created_at")
   updatedAt       DateTime          @updatedAt @map("updated_at")
 
-  creator       CreatorProfile     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  creator       CreatorProfile      @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   examples      CharacterExample[]
   characterTags CharacterTag[]
   likes         CharacterLike[]
@@ -256,15 +257,16 @@ model Character {
 
 // Append-only ledger รายได้ครีเอเตอร์ — idempotencyKey กันจ่ายซ้ำ
 // (เช่น retry หลัง settle; key = `${chatIdempotencyKey}:earning`)
+
 model CreatorEarning {
-  id             String            @id @default(uuid()) @db.Uuid
-  creatorUserId  String            @map("creator_user_id") @db.Uuid
-  characterId    String?           @map("character_id") @db.Uuid
+  id             String             @id @default(uuid()) @db.Uuid
+  creatorUserId  String             @map("creator_user_id") @db.Uuid
+  characterId    String?            @map("character_id") @db.Uuid
   type           CreatorEarningType @default(CHAT_SHARE)
   amount         Int
   note           String?
-  idempotencyKey String?           @unique @map("idempotency_key")
-  createdAt      DateTime          @default(now()) @map("created_at")
+  idempotencyKey String?            @unique @map("idempotency_key")
+  createdAt      DateTime           @default(now()) @map("created_at")
 
   @@index([creatorUserId, createdAt])
   @@index([characterId])
@@ -310,6 +312,7 @@ model CharacterExample {
 
 // ภารกิจของตัวละคร 1 รายการ — ผูกกับ character (cascade ลบตามตัวละคร)
 // MESSAGES/STREAK_DAYS นับก้าวหน้าอัตโนมัติจากการแชท; AI_TOPIC ใช้ AI ตัดสินจากบทสนทนา
+
 enum QuestGoalType {
   MESSAGES
   STREAK_DAYS
@@ -340,6 +343,7 @@ model CharacterQuest {
 
 // ความก้าวหน้า 1 แถวต่อ (user, quest) — completedAt/claimedAt เป็นเส้นแบ่งสถานะ
 // claim idempotent ผ่าน claimedAt (mark-then-grant ใน transaction เดียว)
+
 model UserQuestProgress {
   id          String    @id @default(uuid()) @db.Uuid
   userId      String    @map("user_id") @db.Uuid
@@ -362,6 +366,7 @@ model UserQuestProgress {
 
 // ความสนิทสะสม 1 แถวต่อ (user, character) — เลเวล derive จาก points ใน src/lib/quests/intimacy.ts
 // รางวัลภารกิจและ engagement อื่น ๆ เติม points นี้; ตัวละครปรับน้ำเสียงตามเลเวลผ่าน system prompt
+
 model CharacterAffinity {
   id          String   @id @default(uuid()) @db.Uuid
   userId      String   @map("user_id") @db.Uuid
@@ -379,6 +384,7 @@ model CharacterAffinity {
 }
 
 // Config ระดับแอปแบบ KV — MVP แอดมินแก้ค่าใน DB ตรง ๆ เช่น daily_reward_amount
+
 model AppSetting {
   key       String   @id
   value     String
@@ -414,6 +420,7 @@ model Conversation {
 
 // Regenerate creates a sibling row sharing `parentMessageId`; the newest
 // `variantIndex` with `isActiveVariant = true` is what the UI renders.
+
 model Message {
   id               String        @id @default(uuid()) @db.Uuid
   conversationId   String        @map("conversation_id") @db.Uuid
@@ -516,17 +523,17 @@ model CreatorFollow {
 }
 
 model Report {
-  id          String           @id @default(uuid()) @db.Uuid
-  reporterId  String           @map("reporter_id") @db.Uuid
-  targetType  ReportTargetType @map("target_type")
-  targetId    String           @map("target_id") @db.Uuid
-  reason      String
-  details     String?
-  status      ReportStatus     @default(OPEN)
-  adminNote   String?          @map("admin_note")
-  resolvedAt  DateTime?        @map("resolved_at")
-  createdAt   DateTime         @default(now()) @map("created_at")
-  updatedAt   DateTime         @updatedAt @map("updated_at")
+  id         String           @id @default(uuid()) @db.Uuid
+  reporterId String           @map("reporter_id") @db.Uuid
+  targetType ReportTargetType @map("target_type")
+  targetId   String           @map("target_id") @db.Uuid
+  reason     String
+  details    String?
+  status     ReportStatus     @default(OPEN)
+  adminNote  String?          @map("admin_note")
+  resolvedAt DateTime?        @map("resolved_at")
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
 
   reporter User @relation("ReporterReports", fields: [reporterId], references: [id], onDelete: Cascade)
 
@@ -557,6 +564,7 @@ model EnergyWallet {
 // Append-only ledger. `amount` is signed (negative = spend).
 // `balanceBefore`/`balanceAfter` are total balances (free + paid).
 // `idempotencyKey` prevents double charge (e.g. retry after stream failure).
+
 model EnergyTransaction {
   id             String                @id @default(uuid()) @db.Uuid
   walletId       String                @map("wallet_id") @db.Uuid
@@ -624,4 +632,67 @@ model AiUsageLog {
   @@index([conversationId])
   @@index([status, createdAt])
   @@map("ai_usage_logs")
+}
+
+model AuthUser {
+  id            String    @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
+  name          String
+  email         String
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String   @db.Uuid
+  user      AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
+  accountId             String
+  providerId            String
+  userId                String    @db.Uuid
+  user                  AuthUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
 }

@@ -2,15 +2,15 @@
 
 import { useRouter } from "@/i18n/navigation";
 import { LogOut } from "lucide-react";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { authClient } from "@/lib/auth/auth-client";
 import { Button } from "@/components/ui/button";
 
 export function SignOutButton() {
   const router = useRouter();
 
   async function signOut() {
-    await createSupabaseBrowserClient().auth.signOut();
-    router.push("/");
+    await authClient.signOut();
+    router.push("/login");
     router.refresh();
   }
   return (

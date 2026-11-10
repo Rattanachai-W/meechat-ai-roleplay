@@ -9,6 +9,7 @@ import {
 } from "@/lib/quests/service";
 import { questInputSchema } from "@/lib/validation/quest";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { resolveRequestLocale } from "@/lib/i18n/locale";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -36,9 +37,10 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       );
     }
 
+    const locale = await resolveRequestLocale();
     const [quests, affinity] = await Promise.all([
       getQuestsWithProgress(userId, detail.character.id),
-      getAffinitySummary(userId, detail.character.id),
+      getAffinitySummary(userId, detail.character.id, locale),
     ]);
     return NextResponse.json({ quests, affinity });
   } catch (error) {

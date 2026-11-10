@@ -22,15 +22,17 @@ describe("LLM gateway", () => {
     vi.unstubAllEnvs();
   });
 
-  it("ไม่มี OPENROUTER_API_KEY → LlmError MODEL_UNAVAILABLE", async () => {
-    vi.stubEnv("OPENROUTER_API_KEY", "");
+  it("ไม่มี LLM_API_KEY → LlmError MODEL_UNAVAILABLE", async () => {
+    vi.stubEnv("LLM_API_KEY", "");
     await expect(
       streamChatCompletion({ model: "x/y", messages: [] }).next()
     ).rejects.toMatchObject({ name: "LlmError", code: "MODEL_UNAVAILABLE" });
   });
 
   it("stream: parse delta + usage ถูกต้อง, ข้าม [DONE]", async () => {
-    vi.stubEnv("OPENROUTER_API_KEY", "sk-test");
+    vi.stubEnv("LLM_API_KEY", "sk-test");
+    vi.stubEnv("LLM_API_URL", "");
+    vi.stubEnv("LLM_MODEL", "");
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
@@ -59,18 +61,29 @@ describe("LLM gateway", () => {
   });
 
   it("stream: ใช้ LLM_API_URL เป็น base (ตัด trailing slash)", async () => {
-    vi.stubEnv("OPENROUTER_API_KEY", "sk-test");
+    vi.stubEnv("LLM_API_KEY", "sk-test");
     vi.stubEnv("LLM_API_URL", "https://api.tokenme.limited/api/v1/");
-    const fetchMock = vi.fn(async () => sseResponse([CHUNK("ok")]));
+    const fetchMock = vi.fn<typeof fetch>(async () => sseResponse([CHUNK("ok")]));
     vi.stubGlobal("fetch", fetchMock);
     await streamChatCompletion({ model: "m", messages: [] }).next();
-    expect(fetchMock.mock.calls[0][0]).toBe(
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
       "https://api.tokenme.limited/api/v1/chat/completions"
     );
   });
 
+  it("stream: LLM_MODEL บังคับ model ใน request body", async () => {
+    vi.stubEnv("LLM_API_KEY", "sk-test");
+    vi.stubEnv("LLM_MODEL", "forced/model-id");
+    const fetchMock = vi.fn<typeof fetch>(async () => sseResponse([CHUNK("ok")]));
+    vi.stubGlobal("fetch", fetchMock);
+    await streamChatCompletion({ model: "ignored/from-db", messages: [] }).next();
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
+    const body = JSON.parse(String(init?.body));
+    expect(body.model).toBe("forced/model-id");
+  });
+
   it("stream: payload error กลาง stream → MODEL_UNAVAILABLE", async () => {
-    vi.stubEnv("OPENROUTER_API_KEY", "sk-test");
+    vi.stubEnv("LLM_API_KEY", "sk-test");
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => sseResponse([JSON.stringify({ error: { message: "boom" } })]))
@@ -81,7 +94,7 @@ describe("LLM gateway", () => {
   });
 
   it("HTTP error mapping: 401/402/404/429/400-content/5xx/other", async () => {
-    vi.stubEnv("OPENROUTER_API_KEY", "sk-test");
+    vi.stubEnv("LLM_API_KEY", "sk-test");
     const cases: { status: number; body?: string; code: string; msgContains?: string }[] = [
       { status: 401, code: "MODEL_UNAVAILABLE", msgContains: "API key" },
       { status: 403, code: "MODEL_UNAVAILABLE" },
@@ -104,7 +117,7 @@ describe("LLM gateway", () => {
   });
 
   it("completeOnce: parse choices+usage / fetch crash → MODEL_UNAVAILABLE", async () => {
-    vi.stubEnv("OPENROUTER_API_KEY", "sk-test");
+    vi.stubEnv("LLM_API_KEY", "sk-test");
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>

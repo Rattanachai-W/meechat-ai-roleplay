@@ -1,55 +1,28 @@
-import { getTranslations } from "next-intl/server";
-import { BookHeart, Brain, Compass, Gift, Sparkles, Users } from "lucide-react";
+import { getTranslations, setRequestLocale } from "next-intl/server";
+import { Brain, Coins, Globe, MessageSquare, Sparkles, Users } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";
 
-const features = [
-  {
-    icon: Gift,
-    title: "ช่วงทดสอบ ใช้งานฟรี 100%",
-    description:
-      "ลองแชท สร้างตัวละคร และสำรวจโลก Roleplay ได้เต็มที่ระหว่างช่วงทดสอบ ก่อนเปิดให้บริการอย่างเป็นทางการ",
-    highlight: true,
-  },
-  {
-    icon: Compass,
-    title: "เจอเรื่องที่อยากเล่นได้ทันที",
-    description:
-      "เลือกคุยกับตัวละคร AI หลากหลายแนว ตั้งแต่คดีลึกลับ แฟนตาซี โรแมนซ์ ไปจนถึงยุทธภพสไตล์ไทย",
-  },
-  {
-    icon: Sparkles,
-    title: "ปั้นตัวละครในแบบที่คุณจินตนาการ",
-    description:
-      "กำหนดบุคลิก ฉากหลัง ความสัมพันธ์ และสไตล์การพูด แล้วเริ่ม Roleplay กับคาแรกเตอร์ของคุณได้เลย",
-  },
-  {
-    icon: Brain,
-    title: "เรื่องราวต่อเนื่อง ไม่เริ่มใหม่ทุกครั้ง",
-    description: "ตัวละครจดจำเหตุการณ์สำคัญ ความสัมพันธ์ และคำสัญญา เพื่อให้ทุกบทสนทนามีน้ำหนักกว่าเดิม",
-  },
-  {
-    icon: BookHeart,
-    title: "สวมบทเป็นใครก็ได้",
-    description: "สร้าง Persona หลายแบบเพื่อเข้าคดี ผจญภัย หรือเดินเรื่องรักกับตัวละครเดียวกันในมุมที่ต่างออกไป",
-  },
-  {
-    icon: Users,
-    title: "ค้นพบครีเอเตอร์และโลกใหม่ๆ",
-    description: "ติดตามผู้สร้างที่คุณชอบ แชร์ตัวละคร และเจอพล็อต Roleplay ใหม่ๆ จากชุมชน MeeChat",
-  },
-];
+const FEATURE_KEYS = [
+  { icon: MessageSquare, titleKey: "featChatTitle", bodyKey: "featChatBody", highlight: false },
+  { icon: Brain, titleKey: "featMemoryTitle", bodyKey: "featMemoryBody", highlight: false },
+  { icon: Sparkles, titleKey: "featCreateTitle", bodyKey: "featCreateBody", highlight: false },
+  { icon: Coins, titleKey: "featEnergyTitle", bodyKey: "featEnergyBody", highlight: true },
+  { icon: Users, titleKey: "featCreatorTitle", bodyKey: "featCreatorBody", highlight: false },
+  { icon: Globe, titleKey: "featLocaleTitle", bodyKey: "featLocaleBody", highlight: false },
+] as const;
 
-export default async function HomePage() {
+export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
+  setRequestLocale(locale);
   const t = await getTranslations("Home");
   const nav = await getTranslations("Nav");
 
   return (
     <main className="flex flex-1 flex-col">
-      {/* Nav */}
       <header className="border-border/60 sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
         <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between px-4">
           <span className="text-lg font-bold tracking-tight">
@@ -66,7 +39,6 @@ export default async function HomePage() {
         </div>
       </header>
 
-      {/* Hero */}
       <section className="relative flex min-h-[560px] flex-col items-center justify-center gap-6 overflow-hidden px-4 py-24 text-center md:min-h-[660px]">
         <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden select-none">
           <img
@@ -106,11 +78,10 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Features */}
       <section className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-4 px-4 pb-24 sm:grid-cols-2 lg:grid-cols-3">
-        {features.map((feature) => (
+        {FEATURE_KEYS.map((feature) => (
           <Card
-            key={feature.title}
+            key={feature.titleKey}
             className={
               feature.highlight
                 ? "border-red-400/70 bg-red-500/15 shadow-[0_0_38px_rgba(239,68,68,0.22)]"
@@ -127,15 +98,14 @@ export default async function HomePage() {
               >
                 <feature.icon className="size-5" />
               </div>
-              <CardTitle className="text-lg">{feature.title}</CardTitle>
-              <CardDescription>{feature.description}</CardDescription>
+              <CardTitle className="text-lg">{t(feature.titleKey)}</CardTitle>
+              <CardDescription>{t(feature.bodyKey)}</CardDescription>
             </CardHeader>
             <CardContent />
           </Card>
         ))}
       </section>
 
-      {/* Footer */}
       <footer className="border-border/60 border-t py-8">
         <div className="text-muted-foreground mx-auto w-full max-w-5xl px-4 text-center text-sm">
           {t("footer")}

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Heart, Loader2, Pencil, Plus, ScrollText, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -26,12 +27,6 @@ interface CreatorQuest {
   rewardIntimacy: number;
 }
 
-const GOAL_LABEL: Record<CreatorQuest["goalType"], string> = {
-  MESSAGES: "จำนวนข้อความ",
-  STREAK_DAYS: "จำนวนวันที่แชท",
-  AI_TOPIC: "AI ตัดสินจากบทสนทนา",
-};
-
 const EMPTY_FORM = {
   title: "",
   description: "",
@@ -49,11 +44,23 @@ export function QuestManagerDialog({
   characterId: string;
   characterName: string;
 }) {
+  const t = useTranslations("Quests");
+  const tCreator = useTranslations("Creator");
+  const tCommon = useTranslations("Common");
   const [open, setOpen] = useState(false);
   const [quests, setQuests] = useState<CreatorQuest[] | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const goalLabel = useMemo(
+    () => ({
+      MESSAGES: t("goalMessages"),
+      STREAK_DAYS: t("goalStreak"),
+      AI_TOPIC: t("goalAiTopic"),
+    }),
+    [t]
+  );
 
   const load = useCallback(() => {
     fetch(`/api/characters/${characterId}/quests`)
@@ -107,12 +114,12 @@ export function QuestManagerDialog({
       const data = (await res.json().catch(() => null)) as
         | { error?: { message?: string }; quest?: { id: string } }
         | null;
-      if (!res.ok) throw new Error(data?.error?.message ?? "บันทึกไม่สำเร็จ");
-      toast.success(editingId ? "แก้ภารกิจแล้ว" : "เพิ่มภารกิจแล้ว");
+      if (!res.ok) throw new Error(data?.error?.message ?? t("saveFailed"));
+      toast.success(editingId ? t("savedEdit") : t("savedAdd"));
       resetForm();
       load();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "เกิดข้อผิดพลาด");
+      toast.error(error instanceof Error ? error.message : tCommon("errorGeneric"));
     } finally {
       setSaving(false);
     }
@@ -122,10 +129,10 @@ export function QuestManagerDialog({
     const res = await fetch(`/api/characters/${characterId}/quests/${id}`, { method: "DELETE" });
     if (!res.ok && res.status !== 204) {
       const data = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
-      toast.error(data?.error?.message ?? "ลบไม่สำเร็จ");
+      toast.error(data?.error?.message ?? t("deleteFailed"));
       return;
     }
-    toast.success("ลบภารกิจแล้ว");
+    toast.success(t("deleted"));
     if (editingId === id) resetForm();
     load();
   }
@@ -140,20 +147,17 @@ export function QuestManagerDialog({
     >
       <DialogTrigger asChild>
         <Button size="sm" variant="outline" className="rounded-full">
-          <ScrollText className="size-4" aria-hidden /> ภารกิจ
+          <ScrollText className="size-4" aria-hidden /> {tCreator("quests")}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>ภารกิจของ {characterName}</DialogTitle>
-          <DialogDescription>
-            ผู้เล่นทำภารกิจสำเร็จจะได้ค่าความสนิท ❤ ไม่ใช่เหรียญ — ความสนิททำให้ตัวละครพูดสนิทขึ้น (สูงสุด 10 ภารกิจ)
-          </DialogDescription>
+          <DialogTitle>{t("forCharacter", { name: characterName })}</DialogTitle>
+          <DialogDescription>{t("panelDescription")}</DialogDescription>
         </DialogHeader>
 
-        {/* รายการภารกิจ */}
         {quests === null ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">โหลดภารกิจไม่สำเร็จ</p>
+          <p className="py-4 text-center text-sm text-muted-foreground">{t("loadFailed")}</p>
         ) : (
           <ul className="space-y-2">
             {quests.map((q) => (
@@ -163,14 +167,28 @@ export function QuestManagerDialog({
                     <p className="truncate text-sm font-semibold">{q.title}</p>
                     <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{q.description}</p>
                     <p className="mt-1 text-[11px] text-muted-foreground">
-                      {GOAL_LABEL[q.goalType]}
-                      {q.goalType !== "AI_TOPIC" && ` · เป้า ${q.target}`}
-                      {q.rewardIntimacy > 0 && " · "}
-                      {q.rewardIntimacy > 0 && `รางวัล +${q.rewardIntimacy}❤`}
+                      {q.goalType !== "AI_TOPIC"
+                        ? t("goalWithTarget", { goal: goalLabel[q.goalType], target: q.target })
+                        : goalLabel[q.goalType]}
+                      {q.rewardIntimacy > 0 && (
+                        <>
+                          {" · "}
+                          <span className="inline-flex items-center gap-0.5">
+                            {t("rewardLine", { n: q.rewardIntimacy })}
+                            <Heart className="size-3 fill-current" aria-hidden />
+                          </span>
+                        </>
+                      )}
                     </p>
                   </div>
                   <div className="flex shrink-0 gap-1">
-                    <Button size="icon" variant="ghost" className="size-8" onClick={() => startEdit(q)} aria-label={`แก้ภารกิจ ${q.title}`}>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="size-8"
+                      onClick={() => startEdit(q)}
+                      aria-label={t("editQuestAria", { title: q.title })}
+                    >
                       <Pencil className="size-4" aria-hidden />
                     </Button>
                     <Button
@@ -178,7 +196,7 @@ export function QuestManagerDialog({
                       variant="ghost"
                       className="size-8 text-destructive"
                       onClick={() => remove(q.id)}
-                      aria-label={`ลบภารกิจ ${q.title}`}
+                      aria-label={t("deleteQuestAria", { title: q.title })}
                     >
                       <Trash2 className="size-4" aria-hidden />
                     </Button>
@@ -187,40 +205,53 @@ export function QuestManagerDialog({
               </li>
             ))}
             {quests.length === 0 && (
-              <li className="py-4 text-center text-sm text-muted-foreground">ยังไม่มีภารกิจ</li>
+              <li className="py-4 text-center text-sm text-muted-foreground">{t("empty")}</li>
             )}
           </ul>
         )}
 
-        {/* ฟอร์มเพิ่ม/แก้ */}
         <div className="space-y-3 rounded-xl border border-border p-3">
           <p className="flex items-center gap-1.5 text-sm font-semibold">
             {editingId ? <Pencil className="size-4" aria-hidden /> : <Plus className="size-4" aria-hidden />}
-            {editingId ? "แก้ไขภารกิจ" : "เพิ่มภารกิจใหม่"}
+            {editingId ? t("edit") : t("addNew")}
           </p>
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 space-y-1.5">
-              <Label>ชื่อภารกิจ *</Label>
-              <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} maxLength={60} placeholder="เช่น ชวนฉันไปเดินเล่นตอนเย็น" />
+              <Label>{t("titleRequired")}</Label>
+              <Input
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                maxLength={60}
+                placeholder={t("titlePlaceholder")}
+              />
             </div>
             <div className="col-span-2 space-y-1.5">
-              <Label>คำอธิบาย *</Label>
-              <Textarea rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} maxLength={200} placeholder="บอกผู้เล่นว่าต้องทำอะไร" />
+              <Label>{t("descriptionRequired")}</Label>
+              <Textarea
+                rows={2}
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                maxLength={200}
+                placeholder={t("descPlaceholder")}
+              />
             </div>
             <div className="space-y-1.5">
-              <Label>ประเภท</Label>
+              <Label>{t("goalType")}</Label>
               <select
                 className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm"
                 value={form.goalType}
                 onChange={(e) => setForm({ ...form, goalType: e.target.value as CreatorQuest["goalType"] })}
               >
-                <option value="MESSAGES">จำนวนข้อความ</option>
-                <option value="STREAK_DAYS">จำนวนวันที่แชท</option>
-                <option value="AI_TOPIC">AI ตัดสิน (ภารกิจพิเศษ)</option>
+                <option value="MESSAGES">{t("goalMessages")}</option>
+                <option value="STREAK_DAYS">{t("goalStreak")}</option>
+                <option value="AI_TOPIC">{t("goalAiTopicOption")}</option>
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label>รางวัลความสนิท (❤)</Label>
+              <Label className="flex items-center gap-1">
+                {t("rewardIntimacyHearts")}
+                <Heart className="size-3 fill-current" aria-hidden />
+              </Label>
               <Input
                 type="number"
                 min={1}
@@ -231,7 +262,7 @@ export function QuestManagerDialog({
             </div>
             {form.goalType !== "AI_TOPIC" && (
               <div className="space-y-1.5">
-                <Label>เป้า {form.goalType === "STREAK_DAYS" ? "(วัน)" : "(ข้อความ)"}</Label>
+                <Label>{form.goalType === "STREAK_DAYS" ? t("targetDays") : t("targetMessages")}</Label>
                 <Input
                   type="number"
                   min={1}
@@ -243,13 +274,13 @@ export function QuestManagerDialog({
             )}
             {form.goalType === "AI_TOPIC" && (
               <div className="col-span-2 space-y-1.5">
-                <Label>เกณฑ์ให้ AI ตัดสิน *</Label>
+                <Label>{t("criteriaPrompt")} *</Label>
                 <Textarea
                   rows={3}
                   value={form.criteriaPrompt}
                   onChange={(e) => setForm({ ...form, criteriaPrompt: e.target.value })}
                   maxLength={500}
-                  placeholder="เช่น ผู้ใช้ชวนตัวละครไปดูดาวและตัวละครตอบตกลงอย่างจริงใจ"
+                  placeholder={t("criteriaPlaceholder")}
                 />
               </div>
             )}
@@ -257,18 +288,18 @@ export function QuestManagerDialog({
           <div className="flex items-center justify-end gap-2">
             {editingId && (
               <Button variant="ghost" onClick={resetForm}>
-                ยกเลิก
+                {tCommon("cancel")}
               </Button>
             )}
             <Button onClick={save} disabled={saving || !form.title.trim() || !form.description.trim()}>
               {saving && <Loader2 className="size-4 animate-spin" aria-hidden />}
-              {editingId ? "บันทึกการแก้ไข" : "เพิ่มภารกิจ"}
+              {editingId ? t("saveChanges") : t("add")}
             </Button>
           </div>
         </div>
 
         <p className="flex items-center justify-end gap-1 pb-1 text-xs text-muted-foreground">
-          <Heart className="size-3 fill-current" aria-hidden /> ความสนิทสะสมของผู้เล่นช่วยให้ตัวละครเปิดใจและพูดจาสนิทสนมขึ้น
+          <Heart className="size-3 fill-current" aria-hidden /> {t("footerHint")}
         </p>
       </DialogContent>
     </Dialog>

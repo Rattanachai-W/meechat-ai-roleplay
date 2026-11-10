@@ -1,20 +1,37 @@
 import type { Metadata } from "next";
-import { getLocale } from "next-intl/server";
+import { getLocale, getTranslations, setRequestLocale } from "next-intl/server";
 import { Link, redirect } from "@/i18n/navigation";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { isSupabaseConfigured } from "@/lib/env";
+import { isAuthConfigured } from "@/lib/env";
 import { AuthForm } from "@/features/auth/components/auth-form";
 
-export const metadata: Metadata = { title: "เข้าสู่ระบบ" };
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const t = await getTranslations("Auth");
+  return { title: t("metaTitle") };
+}
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const t = await getTranslations("Auth");
+
   const user = await getCurrentUser();
   if (user) {
-    const locale = await getLocale();
-    redirect({ href: "/discover", locale });
+    const activeLocale = await getLocale();
+    redirect({ href: "/discover", locale: activeLocale });
     return;
   }
 
@@ -24,11 +41,11 @@ export default async function LoginPage() {
         Mee<span className="text-primary">Chat</span>
       </Link>
 
-      {isSupabaseConfigured() ? (
+      {isAuthConfigured() ? (
         <Card className="w-full max-w-sm">
           <CardHeader>
-            <CardTitle>ยินดีต้อนรับกลับมา</CardTitle>
-            <CardDescription>เข้าสู่ระบบเพื่อเริ่ม Roleplay กับตัวละคร AI ของคุณ</CardDescription>
+            <CardTitle>{t("loginWelcome")}</CardTitle>
+            <CardDescription>{t("loginWelcomeSub")}</CardDescription>
           </CardHeader>
           <CardContent>
             <AuthForm />
@@ -36,17 +53,12 @@ export default async function LoginPage() {
         </Card>
       ) : (
         <div className="w-full max-w-md space-y-4">
-          <h1 className="text-center text-2xl font-bold">ยังไม่ได้ตั้งค่า Supabase</h1>
+          <h1 className="text-center text-2xl font-bold">{t("authConfigTitle")}</h1>
           <Alert>
-            <AlertTitle>ต้องตั้งค่า Environment Variables ก่อนใช้งาน</AlertTitle>
-            <AlertDescription>
-              คัดลอก <code className="bg-muted rounded px-1 py-0.5">.env.example</code> เป็น{" "}
-              <code className="bg-muted rounded px-1 py-0.5">.env</code> แล้วใส่ค่า{" "}
-              <code className="bg-muted rounded px-1 py-0.5">NEXT_PUBLIC_SUPABASE_URL</code> และ{" "}
-              <code className="bg-muted rounded px-1 py-0.5">NEXT_PUBLIC_SUPABASE_ANON_KEY</code>{" "}
-              จาก Supabase Dashboard → Project Settings → API จากนั้น restart dev server
-            </AlertDescription>
+            <AlertTitle>{t("authConfigAlertTitle")}</AlertTitle>
+            <AlertDescription>{t("authConfigAlertDescription")}</AlertDescription>
           </Alert>
+          <p className="text-center text-sm text-muted-foreground">{t("authConfigHint")}</p>
         </div>
       )}
     </main>

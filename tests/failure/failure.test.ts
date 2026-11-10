@@ -45,7 +45,7 @@ describe("LLM failure path (in-process pipeline, key ว่าง)", () => {
   it("stream ได้ event:error MODEL_UNAVAILABLE + refund เต็ม + log ERROR + balance เท่าเดิม", async () => {
     // ทำใน process นี้ (import pipeline ตรง) เพื่อ stub env โดยไม่กระทบ dev server
     const { prepareChat, createChatStream } = await import("@/lib/chat/pipeline");
-    vi.stubEnv("OPENROUTER_API_KEY", "");
+    vi.stubEnv("LLM_API_KEY", "");
 
     const balanceBefore = await walletBalance();
 

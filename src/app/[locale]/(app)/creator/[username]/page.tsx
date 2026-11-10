@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { BookUser, Users } from "lucide-react";
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser } from "@/lib/auth/current-user";
@@ -11,14 +12,19 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata(props: {
   params: Promise<{ locale: string; username: string }>;
 }): Promise<Metadata> {
-  const { username } = await props.params;
-  return { title: `@${username} — MeeChat` };
+  const { locale, username } = await props.params;
+  setRequestLocale(locale);
+  const t = await getTranslations("Creator");
+  return { title: t("profileMetaTitle", { username }) };
 }
 
 export default async function CreatorPage(props: {
   params: Promise<{ locale: string; username: string }>;
 }) {
-  const { username } = await props.params;
+  const { locale, username } = await props.params;
+  setRequestLocale(locale);
+  const t = await getTranslations("Creator");
+  const numberLocale = locale === "th" ? "th-TH" : "en-US";
   const viewer = await getCurrentUser();
 
   const creator = await prisma.creatorProfile.findUnique({
@@ -54,6 +60,11 @@ export default async function CreatorPage(props: {
       : Promise.resolve(null),
   ]);
 
+  const statsLine = t("statsFollowersCharacters", {
+    followers: creator._count.followers.toLocaleString(numberLocale),
+    characters: creator._count.characters.toLocaleString(numberLocale),
+  });
+
   return (
     <div className="mx-auto max-w-4xl space-y-8">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -76,8 +87,7 @@ export default async function CreatorPage(props: {
           <p className="text-sm text-muted-foreground">{creator.user.displayName ?? ""}</p>
           <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
             <Users className="size-4" aria-hidden />
-            {creator._count.followers.toLocaleString("th-TH")} ผู้ติดตาม •{" "}
-            {creator._count.characters.toLocaleString("th-TH")} ตัวละคร
+            {statsLine}
           </p>
           {creator.bio && <p className="mt-2 max-w-xl text-sm">{creator.bio}</p>}
         </div>
@@ -91,10 +101,10 @@ export default async function CreatorPage(props: {
       </header>
 
       <section className="space-y-4">
-        <h2 className="text-lg font-bold">ตัวละครของครีเอเตอร์นี้</h2>
+        <h2 className="text-lg font-bold">{t("publicCharactersTitle")}</h2>
         {characters.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
-            ยังไม่มีตัวละครสาธารณะ
+            {t("publicEmpty")}
           </p>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">

@@ -2,16 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { Check, Gift, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
-/**
- * ปุ่มรับพลังงานรายวันบน nav — กล่องของขวัญสีแดง (ยังไม่ได้รับ = เด่น + จุดกะพริบ)
- * สถานะโหลดตอน mount จาก GET /api/energy/daily-claim; ไม่ล็อกอิน → ซ่อน
- */
 export function NavDailyClaim() {
   const router = useRouter();
+  const t = useTranslations("Wallet");
   const [state, setState] = useState<"loading" | "hidden" | "claimable" | "claimed">("loading");
   const [amount, setAmount] = useState<number | null>(null);
 
@@ -43,14 +41,14 @@ export function NavDailyClaim() {
       if ("error" in data) throw new Error(data.error.message);
       setState("claimed");
       if (data.claimed) {
-        toast.success(`รับพลังงานรายวัน +${data.amount} สำเร็จ!`);
-        router.refresh(); // chip ยอดพลังงานบน nav ต้องอัปเดต
+        toast.success(t("dailyClaimSuccess", { amount: data.amount }));
+        router.refresh();
       } else {
-        toast.info("วันนี้รับไปแล้ว กลับมาใหม่พรุ่งนี้");
+        toast.info(t("dailyClaimed"));
       }
     } catch (error) {
       setState("claimable");
-      toast.error(error instanceof Error ? error.message : "เคลมไม่สำเร็จ");
+      toast.error(error instanceof Error ? error.message : t("dailyClaimFailed"));
     }
   }
 
@@ -64,10 +62,12 @@ export function NavDailyClaim() {
       disabled={state === "loading" || state === "claimed"}
       aria-label={
         state === "claimed"
-          ? "รับพลังงานรายวันแล้ววันนี้"
-          : `รับพลังงานรายวันฟรี ${amount !== null ? `+${amount}` : ""}`
+          ? t("navClaimed")
+          : amount !== null
+            ? `${t("navClaim")} +${amount}`
+            : t("navClaim")
       }
-      title={state === "claimed" ? "วันนี้รับแล้ว กลับมาใหม่พรุ่งนี้" : "รับพลังงานรายวันฟรี!"}
+      title={state === "claimed" ? t("navClaimed") : t("navClaim")}
       className={`relative rounded-full border transition-colors ${
         unclaimed
           ? "border-red-500/50 bg-red-500/10 text-red-500 hover:bg-red-500/20"
@@ -87,7 +87,7 @@ export function NavDailyClaim() {
       {unclaimed && (
         <span
           className="absolute -right-0.5 -top-0.5 size-2.5 animate-pulse rounded-full bg-red-500"
-          aria-label="มีของรางวัลรอรับอยู่"
+          aria-hidden
         />
       )}
     </Button>

@@ -48,6 +48,12 @@ function resolveLlmApiUrl(): string {
   return base.replace(/\/+$/, "");
 }
 
+/** ถ้าตั้ง LLM_MODEL จะบังคับใช้ model นี้ทั้งระบบ */
+function resolveConfiguredModelId(fallback: string): string {
+  const forced = process.env.LLM_MODEL?.trim();
+  return forced && forced.length > 0 ? forced : fallback;
+}
+
 interface OpenRouterStreamChunk {
   choices?: { delta?: { content?: string | null }; finish_reason?: string | null }[];
   usage?: { prompt_tokens?: number; completion_tokens?: number } | null;
@@ -59,9 +65,9 @@ interface OpenRouterStreamChunk {
  * yield ทีละ chunk: ข้อความบางส่วน และ/หรือ usage (chunk สุดท้าย)
  */
 export async function* streamChatCompletion(req: StreamRequest): AsyncGenerator<StreamChunk> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = process.env.LLM_API_KEY;
   if (!apiKey || apiKey.length === 0) {
-    throw new LlmError("MODEL_UNAVAILABLE", "OPENROUTER_API_KEY ยังไม่ได้ตั้งค่า");
+    throw new LlmError("MODEL_UNAVAILABLE", "LLM_API_KEY ยังไม่ได้ตั้งค่า");
   }
 
   const timeoutSignal = AbortSignal.timeout(STREAM_TIMEOUT_MS);
@@ -79,7 +85,7 @@ export async function* streamChatCompletion(req: StreamRequest): AsyncGenerator<
         "X-Title": "MeeChat",
       },
       body: JSON.stringify({
-        model: req.model,
+        model: resolveConfiguredModelId(req.model),
         messages: req.messages,
         stream: true,
         temperature: req.temperature ?? 0.9,
@@ -188,10 +194,27 @@ export interface ResolvedModel {
   energyMultiplier: number;
 }
 
-/** เลือกโมเดลจาก ai_models — ไม่พบ/ปิดใช้งาน → ลอง default แรกสุด */
+/** เลือกโมเดลจาก ai_models — ไม่พบ/ปิดใช้งาน → ลอง default แรกสุด
+ *  ถ้ามี LLM_MODEL: บังคับ provider id จาก env, ราคา/energy จากแถว DB ที่ตรงหรือแถวแรก
+ */
 export async function resolveModel(modelKey?: string | null): Promise<ResolvedModel> {
   const models = await prismaSafeList();
   if (models.length === 0) throw new LlmError("MODEL_UNAVAILABLE", "ยังไม่มีโมเดลในระบบ");
+
+  const forced = process.env.LLM_MODEL?.trim();
+  if (forced) {
+    const matched = models.find(
+      (m) => m.modelKey === forced || m.providerModelId === forced
+    );
+    const chosen = matched ?? models[0];
+    return {
+      modelKey: forced,
+      providerModelId: forced,
+      inputCostPerMillion: Number(chosen.inputCostPerMillion),
+      outputCostPerMillion: Number(chosen.outputCostPerMillion),
+      energyMultiplier: Number(chosen.energyMultiplier),
+    };
+  }
 
   const found = modelKey ? models.find((m) => m.modelKey === modelKey) : undefined;
   const chosen = found ?? models[0];
@@ -220,9 +243,9 @@ export async function completeOnce(req: {
   maxTokens?: number;
   temperature?: number;
 }): Promise<{ text: string; usage?: UsageInfo }> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = process.env.LLM_API_KEY;
   if (!apiKey || apiKey.length === 0) {
-    throw new LlmError("MODEL_UNAVAILABLE", "OPENROUTER_API_KEY ยังไม่ได้ตั้งค่า");
+    throw new LlmError("MODEL_UNAVAILABLE", "LLM_API_KEY ยังไม่ได้ตั้งค่า");
   }
 
   const controller = new AbortController();
@@ -239,7 +262,7 @@ export async function completeOnce(req: {
         "X-Title": "MeeChat",
       },
       body: JSON.stringify({
-        model: req.model,
+        model: resolveConfiguredModelId(req.model),
         messages: req.messages,
         temperature: req.temperature ?? 0.3,
         max_tokens: req.maxTokens ?? 600,
@@ -273,8 +296,11 @@ export async function completeOnce(req: {
   };
 }
 
-/** model ถูกที่สุดที่เปิดใช้งาน — สำหรับ background jobs */
+/** model ถูกที่สุดที่เปิดใช้งาน — สำหรับ background jobs (เคารพ LLM_MODEL ถ้ามี) */
 export async function resolveCheapestJobModel(): Promise<string> {
+  const forced = process.env.LLM_MODEL?.trim();
+  if (forced) return forced;
+
   const models = await prismaSafeList();
   const flash = models.find(
     (m) => Number(m.inputCostPerMillion) > 0 && m.modelKey.includes("flash")

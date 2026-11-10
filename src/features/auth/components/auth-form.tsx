@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -9,105 +10,80 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-
-const credentialsSchema = z.object({
-  email: z.email("รูปแบบอีเมลไม่ถูกต้อง"),
-  password: z.string().min(8, "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร"),
-});
+import { authClient } from "@/lib/auth/auth-client";
 
 type AuthMode = "signin" | "signup";
 
-function toThaiErrorMessage(errorCode: string | undefined, fallback: string): string {
-  switch (errorCode) {
-    case "invalid_credentials":
-      return "อีเมลหรือรหัสผ่านไม่ถูกต้อง";
-    case "user_already_exists":
-      return "อีเมลนี้ถูกใช้สมัครแล้ว";
-    case "email_not_confirmed":
-      return "กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ (เช็คกล่องจดหมายของคุณ)";
-    case "over_request_rate_limit":
-      return "พยายามบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่";
-    case "weak_password":
-      return "รหัสผ่านไม่ปลอดภัยพอ กรุณาใช้รหัสผ่านที่ยากขึ้น";
-    default:
-      return fallback;
-  }
-}
-
 export function AuthForm() {
+  const t = useTranslations("Auth");
+  const tCommon = useTranslations("Common");
   const router = useRouter();
   const [mode, setMode] = useState<AuthMode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const credentialsSchema = useMemo(
+    () =>
+      z.object({
+        email: z.email(t("invalidEmail")),
+        password: z.string().min(8, t("passwordMin")),
+      }),
+    [t]
+  );
+
+  function toLocalizedErrorMessage(errorCode: string | undefined, fallback: string): string {
+    switch (errorCode) {
+      case "INVALID_EMAIL_OR_PASSWORD":
+      case "invalid_credentials":
+        return t("errInvalidCredentials");
+      case "USER_ALREADY_EXISTS":
+      case "user_already_exists":
+        return t("errUserExists");
+      case "email_not_confirmed":
+        return t("errEmailNotConfirmed");
+      case "TOO_MANY_REQUESTS":
+      case "over_request_rate_limit":
+        return t("errRateLimit");
+      case "PASSWORD_TOO_SHORT":
+      case "weak_password":
+        return t("errWeakPassword");
+      default:
+        return fallback;
+    }
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const parsed = credentialsSchema.safeParse({ email, password });
     if (!parsed.success) {
-      toast.error(parsed.error.issues[0]?.message ?? "ข้อมูลไม่ถูกต้อง");
+      toast.error(parsed.error.issues[0]?.message ?? t("validationError"));
       return;
     }
 
     setLoading(true);
     try {
-      const supabase = createSupabaseBrowserClient();
-
       if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword(parsed.data);
+        const { error } = await authClient.signIn.email({
+          email: parsed.data.email,
+          password: parsed.data.password,
+        });
         if (error) throw error;
-        router.replace("/discover");
-        router.refresh();
       } else {
-        const { data, error } = await supabase.auth.signUp(parsed.data);
+        const { error } = await authClient.signUp.email({
+          email: parsed.data.email,
+          password: parsed.data.password,
+          name: parsed.data.email.split("@")[0] || "user",
+        });
         if (error) throw error;
-        if (data.session) {
-          router.replace("/discover");
-          router.refresh();
-        } else {
-          // เปิด email confirmation ไว้ — Supabase จะส่งลิงก์ยืนยันไปที่อีเมล
-          toast.success("สมัครสมาชิกสำเร็จ กรุณาตรวจสอบอีเมลเพื่อยืนยันตัวตน");
-        }
       }
+      router.replace("/discover");
+      router.refresh();
     } catch (err) {
       const error = err as { code?: string; message?: string };
-      toast.error(toThaiErrorMessage(error.code, error.message ?? "เกิดข้อผิดพลาด กรุณาลองใหม่"));
+      toast.error(toLocalizedErrorMessage(error.code, error.message ?? tCommon("errorGeneric")));
     } finally {
-      setLoading(false);
-    }
-  }
-
-  async function signInWithGoogle() {
-    setLoading(true);
-    try {
-      const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
-      });
-      if (error) throw error;
-    } catch (err) {
-      const error = err as { message?: string };
-      toast.error(error.message ?? "เข้าสู่ระบบด้วย Google ไม่สำเร็จ");
-      setLoading(false);
-    }
-  }
-
-  async function signInWithFacebook() {
-    setLoading(true);
-    try {
-      const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "facebook",
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
-      });
-      if (error) throw error;
-    } catch (err) {
-      const error = err as { message?: string };
-      toast.error(error.message ?? "เข้าสู่ระบบด้วย Facebook ไม่สำเร็จ");
       setLoading(false);
     }
   }
@@ -115,14 +91,14 @@ export function AuthForm() {
   return (
     <Tabs value={mode} onValueChange={(v) => setMode(v as AuthMode)} className="w-full">
       <TabsList className="grid w-full grid-cols-2">
-        <TabsTrigger value="signin">เข้าสู่ระบบ</TabsTrigger>
-        <TabsTrigger value="signup">สมัครสมาชิก</TabsTrigger>
+        <TabsTrigger value="signin">{t("signIn")}</TabsTrigger>
+        <TabsTrigger value="signup">{t("signUp")}</TabsTrigger>
       </TabsList>
 
       <TabsContent value={mode}>
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">อีเมล</Label>
+            <Label htmlFor="email">{t("email")}</Label>
             <Input
               id="email"
               type="email"
@@ -134,7 +110,7 @@ export function AuthForm() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">รหัสผ่าน</Label>
+            <Label htmlFor="password">{t("password")}</Label>
             <Input
               id="password"
               type="password"
@@ -149,57 +125,10 @@ export function AuthForm() {
 
           <Button type="submit" className="w-full" disabled={loading}>
             {loading && <Loader2 className="size-4 animate-spin" />}
-            {mode === "signin" ? "เข้าสู่ระบบ" : "สมัครสมาชิก"}
+            {mode === "signin" ? t("signIn") : t("signUp")}
           </Button>
         </form>
       </TabsContent>
-
-      <div className="my-4 flex items-center gap-3">
-        <Separator className="flex-1" />
-        <span className="text-muted-foreground text-xs">หรือ</span>
-        <Separator className="flex-1" />
-      </div>
-
-      <div className="space-y-2">
-        <Button variant="outline" type="button" className="w-full" onClick={signInWithGoogle} disabled={loading}>
-          <svg viewBox="0 0 24 24" aria-hidden className="size-4">
-            <path
-              fill="#4285F4"
-              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z"
-            />
-            <path
-              fill="#34A853"
-              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z"
-            />
-            <path
-              fill="#FBBC05"
-              d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84Z"
-            />
-            <path
-              fill="#EA4335"
-              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38Z"
-            />
-          </svg>
-          ดำเนินการต่อด้วย Google
-        </Button>
-
-        {/* TODO(auth): เปิดใช้เมื่อ enable provider Facebook ใน Supabase Dashboard แล้ว
-            (ตอนนี้ authorize endpoint ตอบ 400 Unsupported provider) */}
-        <Button variant="outline" type="button" className="w-full opacity-60" disabled title="ยังไม่เปิดใช้งาน — กำลังตั้งค่าผู้ให้บริการ">
-          <svg viewBox="0 0 24 24" aria-hidden className="size-4">
-            <path
-              fill="#1877F2"
-              d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.09 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.7 4.53-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.26h3.33l-.53 3.49h-2.8V24C19.61 23.09 24 18.1 24 12.07Z"
-            />
-            <path
-              fill="currentColor"
-              d="M16.67 15.56l.53-3.49h-3.33V9.81c0-.95.47-1.89 1.96-1.89h1.51V4.95s-1.37-.24-2.68-.24c-2.74 0-4.53 1.68-4.53 4.7v2.66H7.08v3.49h3.05V24a12.1 12.1 0 0 0 3.74 0v-8.44h2.8Z"
-            />
-          </svg>
-          ดำเนินการต่อด้วย Facebook
-          <span className="ml-1 text-xs text-muted-foreground">(เร็ว ๆ นี้)</span>
-        </Button>
-      </div>
     </Tabs>
   );
 }

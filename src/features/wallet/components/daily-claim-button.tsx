@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { Gift, Loader2, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ export function DailyClaimButton({
   amount: number;
 }) {
   const router = useRouter();
+  const t = useTranslations("Wallet");
   const [claimed, setClaimed] = useState(initialClaimedToday);
   const [loading, setLoading] = useState(false);
 
@@ -27,14 +29,14 @@ export function DailyClaimButton({
       if ("error" in data) throw new Error(data.error.message);
       if (data.claimed) {
         setClaimed(true);
-        toast.success(`รับพลังงานรายวัน +${data.amount} สำเร็จ!`);
+        toast.success(t("dailyClaimSuccess", { amount: data.amount }));
         router.refresh();
       } else {
         setClaimed(true);
-        toast.info("วันนี้รับไปแล้ว กลับมาใหม่พรุ่งนี้");
+        toast.info(t("dailyClaimed"));
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "เคลมไม่สำเร็จ");
+      toast.error(error instanceof Error ? error.message : t("dailyClaimFailed"));
     } finally {
       setLoading(false);
     }
@@ -49,7 +51,7 @@ export function DailyClaimButton({
       ) : (
         <Gift className="size-4" aria-hidden />
       )}
-      {claimed ? "วันนี้รับแล้ว" : `รับพลังงานรายวัน +${amount}`}
+      {claimed ? t("dailyClaimed") : t("dailyClaim", { amount })}
     </Button>
   );
 }

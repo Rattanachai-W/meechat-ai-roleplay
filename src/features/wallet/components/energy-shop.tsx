@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { Coins, Loader2, FlaskConical, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { toBcp47, type AppLocale } from "@/i18n/routing";
 
 interface Pkg {
   id: string;
@@ -18,20 +20,17 @@ interface Pkg {
 
 type ShopMode = "off" | "mock" | "stripe";
 
-/**
- * ร้านเติมพลังงาน (docs/creator-system.md §5)
- * mode = mock → ป้าย "โหมดทดสอบ" + credit ทันที
- * mode = stripe → redirect ไป Stripe Checkout; เครดิตเข้าหลังจ่าย
- *   (webhook /api/webhooks/stripe หรือ fallback /api/energy/confirm ตอนกลับมา)
- */
 export function EnergyShop() {
   const router = useRouter();
+  const t = useTranslations("Wallet");
+  const tCommon = useTranslations("Common");
+  const locale = useLocale() as AppLocale;
+  const bcp47 = toBcp47(locale);
   const [packages, setPackages] = useState<Pkg[]>([]);
   const [mode, setMode] = useState<ShopMode>("off");
   const [currency, setCurrency] = useState<"THB" | "USD">("THB");
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState<string | null>(null);
-  // StrictMode dev mount 2 ครั้ง — กันยิง confirm ซ้ำ (server กันซ้ำอยู่แล้วแต่ toast จะซ้อน)
   const confirmedReturn = useRef(false);
 
   useEffect(() => {
@@ -46,7 +45,6 @@ export function EnergyShop() {
       .finally(() => setLoading(false));
   }, []);
 
-  // กลับมาจาก Stripe Checkout (?purchase=success&session_id=... / ?purchase=cancelled)
   useEffect(() => {
     if (confirmedReturn.current) return;
     const params = new URLSearchParams(window.location.search);
@@ -55,10 +53,10 @@ export function EnergyShop() {
     confirmedReturn.current = true;
 
     const sessionId = params.get("session_id");
-    router.replace("/wallet", { scroll: false }); // เคลียร์ query กัน refresh แล้วยิงซ้ำ
+    router.replace("/wallet", { scroll: false });
 
     if (purchase === "cancelled" || !sessionId) {
-      toast.info("ยกเลิกการเติมพลังงาน — ไม่มีการตัดเงิน");
+      toast.info(t("shopCancelled"));
       return;
     }
 
@@ -71,15 +69,13 @@ export function EnergyShop() {
         const data = (await res.json().catch(() => null)) as
           | { credited?: boolean; coins?: number; error?: { message?: string } }
           | null;
-        if (!res.ok || !data) throw new Error(data?.error?.message ?? "ตรวจสอบการชำระเงินไม่สำเร็จ");
-        if (data.credited) toast.success(`ชำระเงินสำเร็จ! เติม +${data.coins?.toLocaleString("th-TH")} พลังงาน`);
-        else toast.success("การชำระเงินได้รับการยืนยันไปแล้ว — พลังงานเข้ากระเป๋าเรียบร้อย");
+        if (!res.ok || !data) throw new Error(data?.error?.message ?? t("shopFailed"));
+        if (data.credited) toast.success(t("shopSuccess"));
+        else toast.success(t("shopSuccess"));
       })
       .then(() => router.refresh())
-      .catch((e: unknown) =>
-        toast.error(e instanceof Error ? e.message : "ตรวจสอบการชำระเงินไม่สำเร็จ")
-      );
-  }, [router]);
+      .catch((e: unknown) => toast.error(e instanceof Error ? e.message : t("shopFailed")));
+  }, [router, t]);
 
   async function buy(pkg: Pkg) {
     setBuying(pkg.id);
@@ -95,13 +91,13 @@ export function EnergyShop() {
       if ("error" in data) throw new Error(data.error.message);
 
       if ("checkoutUrl" in data && data.checkoutUrl) {
-        window.location.assign(data.checkoutUrl); // ไปหน้าชำระเงิน Stripe — กลับมาที่ /wallet เอง
+        window.location.assign(data.checkoutUrl);
         return;
       }
-      toast.success(`เติม +${(data.coins ?? 0).toLocaleString("th-TH")} พลังงานสำเร็จ!`);
+      toast.success(t("shopSuccess"));
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "เติมพลังงานไม่สำเร็จ");
+      toast.error(error instanceof Error ? error.message : t("shopFailed"));
     } finally {
       setBuying(null);
     }
@@ -111,26 +107,24 @@ export function EnergyShop() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <Coins className="size-4 text-amber-500" aria-hidden /> เติมพลังงาน
+          <Coins className="size-4 text-amber-500" aria-hidden /> {t("buy")}
           {mode === "mock" && (
             <span className="ml-auto flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-500">
-              <FlaskConical className="size-3" aria-hidden /> โหมดทดสอบ — ไม่มีการตัดเงินจริง
+              <FlaskConical className="size-3" aria-hidden /> {t("shopMockBadge")}
             </span>
           )}
           {mode === "stripe" && (
             <span className="ml-auto flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-              <ShieldCheck className="size-3" aria-hidden /> ชำระผ่าน Stripe
+              <ShieldCheck className="size-3" aria-hidden /> {t("shopStripeBadge")}
             </span>
           )}
         </CardTitle>
       </CardHeader>
       <CardContent>
         {loading ? (
-          <p className="py-2 text-sm text-muted-foreground">กำลังโหลดแพ็กเกจ...</p>
+          <p className="py-2 text-sm text-muted-foreground">{tCommon("loading")}</p>
         ) : mode === "off" ? (
-          <p className="py-2 text-sm text-muted-foreground">
-            ระบบชำระเงินยังไม่เปิดใช้งาน — รับพลังงานรายวันฟรีได้จากปุ่มด้านบน
-          </p>
+          <p className="py-2 text-sm text-muted-foreground">{t("shopDisabled")}</p>
         ) : (
           <div className="space-y-3">
             <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Currency">
@@ -159,15 +153,17 @@ export function EnergyShop() {
                   disabled={buying !== null}
                   className="rounded-xl border border-border p-4 text-left transition-colors hover:border-amber-500/50 hover:bg-amber-500/5 disabled:opacity-50"
                 >
-                  <p className="font-semibold">{pkg.label}</p>
+                  <p className="font-semibold">{locale === "en" && pkg.labelEn ? pkg.labelEn : pkg.label}</p>
                   <p className="mt-1 flex items-center justify-between text-sm text-muted-foreground">
                     {currency === "USD"
-                      ? `$${(pkg.priceUsd ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}`
-                      : `฿${pkg.priceThb.toLocaleString("th-TH")}`}
+                      ? t("priceUsd", {
+                          price: (pkg.priceUsd ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 }),
+                        })
+                      : t("priceThb", { price: pkg.priceThb.toLocaleString(bcp47) })}
                     {buying === pkg.id ? (
                       <Loader2 className="size-4 animate-spin" aria-hidden />
                     ) : (
-                      <span className="font-medium text-amber-500">Buy</span>
+                      <span className="font-medium text-amber-500">{t("shopBuy")}</span>
                     )}
                   </p>
                 </button>

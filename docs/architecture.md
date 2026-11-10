@@ -7,9 +7,10 @@
 
 Modular Monolith บน Next.js App Router — ทุกส่วน deploy บน Vercel โดยใช้ managed services:
 
-- **Supabase** — Postgres (Prisma ORM), Auth, Storage
-- **Upstash Redis** — rate limiting, temporary cache
-- **OpenRouter** — LLM gateway เริ่มต้น (replaceable)
+- **Postgres** — Prisma ORM (local Docker หรือ managed Postgres)
+- **Better Auth** — email/password sessions ในแอป (ไม่พึ่ง Supabase Auth)
+- **Upstash Redis** — rate limiting, temporary cache (optional)
+- **OpenRouter / OpenAI-compatible LLM** — gateway เริ่มต้น (replaceable)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -21,8 +22,8 @@ Modular Monolith บน Next.js App Router — ทุกส่วน deploy บ�
 │                     Next.js Route Handlers                       │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌─────────────────────┐ │
 │  │   Auth   │ │Characters│ │   Chat   │ │ Energy / Usage      │ │
-│  │ (proxy + │ │ CRUD/API │ │ POST SSE │ │ APIs                │ │
-│  │ callback)│ │          │ │          │ │                     │ │
+│  │ Better   │ │ CRUD/API │ │ POST SSE │ │ APIs                │ │
+│  │ Auth API │ │          │ │          │ │                     │ │
 │  └──────────┘ └──────────┘ └────┬─────┘ └─────────────────────┘ │
 │                                 │                               │
 │         src/lib — domain modules (framework-agnostic)           │
@@ -33,20 +34,19 @@ Modular Monolith บน Next.js App Router — ทุกส่วน deploy บ�
 └───────┬───────────────────┬───────────────────┬─────────────────┘
         │                   │                   │
 ┌───────▼───────┐  ┌────────▼────────┐  ┌───────▼─────────┐
-│ Supabase      │  │ OpenRouter      │  │ Upstash Redis   │
-│ • Postgres    │  │ (OpenAI-compatible│ • rate limit     │
-│   (+ pgvector │  │  abstraction)    │  │ • temp cache    │
-│   เมื่อจำเป็น) │  │ ↕ swap ได้:       │  └─────────────────┘
-│ • Auth        │  │ OpenAI/Anthropic/ │
-│ • Storage     │  │ Gemini/local LLM  │
+│ Postgres      │  │ LLM gateway     │  │ Upstash Redis   │
+│ • Prisma      │  │ (OpenAI-compatible│ • rate limit     │
+│ • Better Auth │  │  abstraction)    │  │ • temp cache    │
+│   tables      │  │ ↕ swap ได้       │  └─────────────────┘
 └───────────────┘  └─────────────────┘
 ```
+
 
 ## 2. LLM Request Flow (Chat)
 
 ```
 POST /api/chat
-  → authenticate (Supabase session via proxy)
+  → authenticate (Better Auth session)
   → validate input (Zod)
   → load conversation + ownership check
   → check energy (reserve, idempotency key)

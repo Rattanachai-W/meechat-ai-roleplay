@@ -1,4 +1,4 @@
-import { getLocale } from "next-intl/server";
+import { getLocale, getTranslations, setRequestLocale } from "next-intl/server";
 import { redirect } from "@/i18n/navigation";
 import type { Metadata } from "next";
 import { Zap, Sparkles } from "lucide-react";
@@ -8,26 +8,48 @@ import { getOrCreateWalletSummary, getDailyClaimStatus } from "@/lib/energy/serv
 import { prisma } from "@/lib/db/prisma";
 import { DailyClaimButton } from "@/features/wallet/components/daily-claim-button";
 import { EnergyShop } from "@/features/wallet/components/energy-shop";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { toBcp47, type AppLocale } from "@/i18n/routing";
 
-export const metadata: Metadata = { title: "พลังงานของฉัน — MeeChat" };
 export const dynamic = "force-dynamic";
 
-const TYPE_LABELS: Record<string, string> = {
-  DAILY_REWARD: "รางวัลรายวัน",
-  PURCHASE: "ซื้อพลังงาน",
-  CHAT_USAGE: "ใช้แชท",
-  REGENERATE: "ตอบใหม่",
-  REFUND: "คืนพลังงาน",
-  ADMIN_ADJUSTMENT: "ปรับโดยแอดมิน",
-  PROMOTION: "โปรโมชั่น",
-  SUBSCRIPTION: "สมาชิก",
-};
+export async function generateMetadata(props: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await props.params;
+  const t = await getTranslations({ locale, namespace: "Wallet" });
+  return { title: t("metaTitle") };
+}
 
-export default async function WalletPage() {
+function transactionTypeLabel(
+  t: Awaited<ReturnType<typeof getTranslations<"Wallet">>>,
+  type: string
+): string {
+  const map: Record<string, string> = {
+    DAILY_REWARD: t("typeDaily"),
+    PURCHASE: t("typePurchase"),
+    CHAT_USAGE: t("typeChat"),
+    REGENERATE: t("typeRegenerate"),
+    REFUND: t("typeRefund"),
+    ADMIN_ADJUSTMENT: t("typeAdmin"),
+    PROMOTION: t("typePromotion"),
+    SUBSCRIPTION: t("typeSubscription"),
+    QUEST_REWARD: t("typeQuest"),
+  };
+  return map[type] ?? type;
+}
+
+export default async function WalletPage(props: { params: Promise<{ locale: string }> }) {
+  const { locale } = await props.params;
+  setRequestLocale(locale);
+  const t = await getTranslations("Wallet");
+  const bcp47 = toBcp47(locale as AppLocale);
+
   const user = await getCurrentUser();
   if (!user) {
-    const locale = await getLocale();
-    redirect({ href: "/login", locale });
+    const loc = await getLocale();
+    redirect({ href: "/login", locale: loc });
     return;
   }
 
@@ -41,23 +63,26 @@ export default async function WalletPage() {
     getDailyClaimStatus(user.id),
   ]);
 
+  const fmt = (n: number) => n.toLocaleString(bcp47);
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold">พลังงานของฉัน</h1>
+      <PageHeader
+        title={t("title")}
+        description={t("subtitle")}
+        icon={<Zap className="size-6 fill-amber-400 text-amber-400" aria-hidden />}
+      />
 
-      <Card className="border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-transparent">
-        <CardContent className="flex items-center gap-4">
-          <div className="grid size-14 shrink-0 place-items-center rounded-full bg-amber-500/15">
+      <Card className="border-amber-500/25 bg-gradient-to-br from-amber-500/10 to-transparent">
+        <CardContent className="flex flex-wrap items-center gap-4 pt-6">
+          <div className="grid size-14 shrink-0 place-items-center rounded-2xl bg-amber-500/15">
             <Zap className="size-7 fill-amber-400 text-amber-400" aria-hidden />
           </div>
-          <div>
-            <p className="text-3xl font-black tabular-nums">
-              {wallet.totalBalance.toLocaleString("th-TH")}
-            </p>
+          <div className="min-w-0 flex-1">
+            <p className="text-3xl font-black tracking-tight tabular-nums">{fmt(wallet.totalBalance)}</p>
             <p className="text-xs text-muted-foreground">
-              ฟรี {wallet.freeBalance.toLocaleString("th-TH")} • ซื้อ{" "}
-              {wallet.paidBalance.toLocaleString("th-TH")} • ใช้ไปแล้วรวม{" "}
-              {wallet.lifetimeSpent.toLocaleString("th-TH")}
+              {t("free", { n: fmt(wallet.freeBalance) })} · {t("paid", { n: fmt(wallet.paidBalance) })} ·{" "}
+              {t("spent", { n: fmt(wallet.lifetimeSpent) })}
             </p>
           </div>
           <div className="ml-auto">
@@ -74,34 +99,36 @@ export default async function WalletPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Sparkles className="size-4 text-fuchsia-500" aria-hidden /> ประวัติการเติม/ใช้พลังงาน
+            <Sparkles className="size-4 text-fuchsia-500" aria-hidden /> {t("historyTitle")}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {transactions.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              ยังไม่มีรายการ — เริ่มแชทได้เลย!
-            </p>
+            <EmptyState
+              icon={<Sparkles className="size-5" aria-hidden />}
+              title={t("emptyTitle")}
+              description={t("emptyBody")}
+            />
           ) : (
-            <ul className="divide-y divide-border">
-              {transactions.map((t) => (
-                <li key={t.id} className="flex items-center gap-3 py-2.5 text-sm">
+            <ul className="divide-y divide-border/70">
+              {transactions.map((tx) => (
+                <li key={tx.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-3 text-sm">
                   <span className="w-28 shrink-0 text-muted-foreground">
-                    {TYPE_LABELS[t.type] ?? t.type}
+                    {transactionTypeLabel(t, tx.type)}
                   </span>
                   <span
                     className={`w-16 shrink-0 text-right font-semibold tabular-nums ${
-                      t.amount > 0 ? "text-emerald-500" : "text-rose-500"
+                      tx.amount > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
                     }`}
                   >
-                    {t.amount > 0 ? "+" : ""}
-                    {t.amount.toLocaleString("th-TH")}
+                    {tx.amount > 0 ? "+" : ""}
+                    {fmt(tx.amount)}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    คงเหลือ {t.balanceAfter.toLocaleString("th-TH")}
+                    {t("balanceAfter", { n: fmt(tx.balanceAfter) })}
                   </span>
                   <span className="ml-auto text-xs text-muted-foreground">
-                    {new Date(t.createdAt).toLocaleString("th-TH", {
+                    {new Date(tx.createdAt).toLocaleString(bcp47, {
                       dateStyle: "short",
                       timeStyle: "short",
                     })}
@@ -113,10 +140,7 @@ export default async function WalletPage() {
         </CardContent>
       </Card>
 
-      <p className="text-xs text-muted-foreground">
-        * 1 พลังงาน ≈ 1,000 tokens ของโมเดลพื้นฐาน คูณตัวคูณตามโมเดลที่เลือก —
-        ระบบจองพลังงานก่อนส่ง แล้วคืนส่วนเกินเมื่อตอบจบ
-      </p>
+      <p className="text-xs leading-relaxed text-muted-foreground">{t("footnote")}</p>
     </div>
   );
 }

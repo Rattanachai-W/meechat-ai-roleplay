@@ -9,9 +9,19 @@ import { LocalePrefsForm } from "@/features/settings/components/locale-prefs-for
 import { AccountDataActions } from "@/features/settings/components/account-data-actions";
 import { Link } from "@/i18n/navigation";
 import { toBcp47, type AppLocale } from "@/i18n/routing";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 
-export const metadata: Metadata = { title: "Settings — MeeChat" };
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata(props: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await props.params;
+  const t = await getTranslations({ locale, namespace: "Settings" });
+  return { title: t("title") };
+}
 
 export default async function SettingsPage({
   params,
@@ -54,17 +64,18 @@ export default async function SettingsPage({
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold">{t("title")}</h1>
+      <PageHeader title={t("title")} />
 
       {!user ? (
-        <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
-            {t("notLoggedIn")}{" "}
-            <Link href="/login" className="text-primary underline">
-              {t("loginLink")}
-            </Link>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={<UserRound className="size-5" aria-hidden />}
+          title={t("notLoggedIn")}
+          action={
+            <Button asChild className="rounded-full">
+              <Link href="/login">{t("loginLink")}</Link>
+            </Button>
+          }
+        />
       ) : (
         <>
           <Card>

@@ -19,7 +19,7 @@ export function AccountDataActions() {
       const res = await fetch("/api/me/export");
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        throw new Error(data?.error?.message ?? "Export failed");
+        throw new Error(data?.error?.message ?? t("exportFailed"));
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -29,7 +29,7 @@ export function AccountDataActions() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Export failed");
+      toast.error(error instanceof Error ? error.message : t("exportFailed"));
     } finally {
       setBusy(false);
     }
@@ -45,11 +45,11 @@ export function AccountDataActions() {
         body: JSON.stringify({ confirm: "DELETE" }),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error?.message ?? "Delete failed");
+      if (!res.ok) throw new Error(data?.error?.message ?? t("deleteFailed"));
       router.push("/");
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Delete failed");
+      toast.error(error instanceof Error ? error.message : t("deleteFailed"));
     } finally {
       setBusy(false);
     }

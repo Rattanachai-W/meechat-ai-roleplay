@@ -98,19 +98,26 @@ export interface AffinitySummary {
   points: number;
   level: number;
   label: string;
+  labelEn?: string;
   nextLevelAt: number | null;
 }
 
 export async function getAffinitySummary(
   userId: string,
-  characterId: string
+  characterId: string,
+  locale: "th" | "en" = "th"
 ): Promise<AffinitySummary> {
   const row = await prisma.characterAffinity.findUnique({
     where: { userId_characterId: { userId, characterId } },
     select: { points: true },
   });
   const lv = pointsToLevel(row?.points ?? 0);
-  return { points: row?.points ?? 0, level: lv.level, label: lv.label, nextLevelAt: lv.nextLevelAt };
+  return {
+    points: row?.points ?? 0,
+    level: lv.level,
+    label: locale === "en" ? lv.labelEn : lv.label,
+    nextLevelAt: lv.nextLevelAt,
+  };
 }
 
 /** เติมค่าความสนิท (upsert increment) — ใช้ทั้งจาก claim ภารกิจและ engagement อื่นในอนาคต */
@@ -324,12 +331,16 @@ export async function claimQuestReward(
     return addIntimacyPoints(userId, quest.characterId, quest.rewardIntimacy);
   });
 
+  const lv = pointsToLevel(points);
   return {
     amount: quest.rewardIntimacy,
-    affinity: (() => {
-      const lv = pointsToLevel(points);
-      return { points, level: lv.level, label: lv.label, nextLevelAt: lv.nextLevelAt };
-    })(),
+    affinity: {
+      points,
+      level: lv.level,
+      label: lv.label,
+      labelEn: lv.labelEn,
+      nextLevelAt: lv.nextLevelAt,
+    },
   };
 }
 
